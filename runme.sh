@@ -12,6 +12,11 @@ Commands:
   build       Build the dev-container image from this asset directory
   restricted  Run the container with the firewall enabled
   discovery   Run the container with unrestricted egress and background capture
+
+Environment variables:
+  IMAGE_NAME          Image to use or build (default: bookstore-copilot)
+  SSH_SCOPE_DIR       Host SSH subdirectory to mount as ~/.ssh (default: ~/.ssh/bookstore)
+  EXTRA_MOUNTS        Space-separated list of extra host directories to mount under /repos
 EOF
 }
 
@@ -38,6 +43,13 @@ run_container() {
     mkdir -p "$workspace_dir/$capture_dir_name"
   fi
 
+  local extra_mount_flags=()
+  if [[ -n "${EXTRA_MOUNTS:-}" ]]; then
+    for dir in $EXTRA_MOUNTS; do
+      extra_mount_flags+=(-v "$dir:/repos/$(basename "$dir")")
+    done
+  fi
+
   docker run -it --rm \
     "${capabilities[@]}" \
     --add-host=host.docker.internal:host-gateway \
@@ -47,6 +59,7 @@ run_container() {
     -e DISCOVERY_CAPTURE_ENABLED="$capture_enabled" \
     -e DISCOVERY_CAPTURE_DIR="/workspace/$capture_dir_name" \
     -v "$workspace_dir:/workspace" \
+    "${extra_mount_flags[@]}" \
     -v "$ssh_scope_dir:/root/.ssh:ro" \
     -v "$HOME/.config/gh:/root/.config/gh" \
     -v "$HOME/.copilot:/root/.copilot" \
