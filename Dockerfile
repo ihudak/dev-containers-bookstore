@@ -1,6 +1,12 @@
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Sandbox user: created at container startup by the entrypoint using
+# the SANDBOX_UID/SANDBOX_GID env vars that runme.sh passes automatically
+# (defaults to the host user's id -u / id -g).
+# No user is baked into the image so that the same image works for every
+# team member without rebuilding.
+
 # Base utilities and capture tools
 RUN apt update && apt install -y \
   ca-certificates curl gnupg lsb-release \
@@ -8,6 +14,7 @@ RUN apt update && apt install -y \
   wget iputils-ping \
   iptables ipset dnsutils \
   openssh-client \
+  libcap2-bin \
   openjdk-21-jdk \
   unzip \
   tcpdump \
@@ -46,13 +53,18 @@ RUN npm install -g @github/copilot @angular/cli
 
 COPY refresh-ipset-allowlist.sh /usr/local/bin/
 COPY capture-copilot-destinations.sh /usr/local/bin/
+COPY capture-blocked-traffic.sh /usr/local/bin/
 COPY allowlist-domains.txt /tmp/
 COPY allowlist-cidrs.txt /tmp/
 COPY allowlist-proxy-domains.txt /tmp/
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /usr/local/bin/refresh-ipset-allowlist.sh \
   /usr/local/bin/capture-copilot-destinations.sh \
+  /usr/local/bin/capture-blocked-traffic.sh \
   /entrypoint.sh
+
+# The sandbox user is NOT created here.
+# The entrypoint creates it at startup using SANDBOX_UID/SANDBOX_GID env vars.
 
 ENTRYPOINT ["/entrypoint.sh"]
 WORKDIR /workspace

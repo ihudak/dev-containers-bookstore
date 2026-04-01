@@ -24,6 +24,9 @@ githubcopilot.com
 # business.githubcopilot.com
 # enterprise.githubcopilot.com
 
+# GitHub Models / multi-model support (required by newer Copilot CLI versions)
+models.inference.ai.azure.com
+
 # GitHub content
 raw.githubusercontent.com
 objects.githubusercontent.com
@@ -34,6 +37,7 @@ github-cloud.s3.amazonaws.com
 api.mcp.github.com
 scanning-api.github.com
 user-images.githubusercontent.com
+release-assets.githubusercontent.com
 
 # Dockerfile build hosts
 archive.ubuntu.com
@@ -54,6 +58,9 @@ skimdb.npmjs.com
 
 # Runtime and docs
 repo.maven.apache.org
+plugins.gradle.org
+plugins-artifacts.gradle.org
+services.gradle.org
 docs.dynatrace.com
 artifactory.lab.dynatrace.org
 bitbucket.lab.dynatrace.org
@@ -62,3 +69,4 @@ bitbucket.lab.dynatrace.org
 # Add the concrete endpoints for every MCP server you configure.
 # Example: the Dynatrace Managed environment URLs used by a Dynatrace Managed MCP Server.
 # your-managed-environment.example.com
+
