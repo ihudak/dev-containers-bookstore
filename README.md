@@ -13,7 +13,7 @@ It packages a CLI-only Docker-based workspace for running GitHub Copilot CLI ins
 - `capture-copilot-destinations.sh` captures DNS and TLS metadata so you can refine your allowlist.
 - `allowlist-domains.txt` contains a public-safe example domain list with placeholders instead of corporate endpoints.
 - `allowlist-cidrs.txt` contains explicit IP and CIDR entries, typically loopback plus any proxy IPs you approve.
-- `allowlist-proxy-domains.txt` documents the wildcard Copilot domains that must be enforced by a proxy or FQDN-aware firewall.
+- `allowlist-proxy-domains.txt` contains the wildcard Copilot domain patterns used by the self-healing daemon for reactive auto-allowing, and optionally by an upstream proxy or FQDN-aware firewall.
 - `runme.sh` is the convenience wrapper for building and running the example container.
 
 ## Usage
@@ -92,6 +92,6 @@ Discovery mode runs as root with unrestricted egress and is intended for supervi
 
 ## Important notes
 
-- Wildcard Copilot domains such as `*.githubcopilot.com` cannot be represented safely with plain `iptables` alone.
+- Wildcard Copilot domains such as `*.githubcopilot.com` cannot be pre-resolved into `iptables` rules. The self-healing daemon handles this reactively by auto-allowing IPs whose resolved domains match wildcard patterns in `allowlist-proxy-domains.txt`. An upstream proxy provides proactive enforcement if available.
 - Direct-connect allowlists can drift as DNS answers and CDN backends change, so refresh and validate regularly.
 - This repo is meant to be illustrative and reusable, so the included non-GitHub endpoints are placeholders by design.
