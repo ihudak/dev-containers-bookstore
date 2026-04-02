@@ -118,7 +118,10 @@ apply_discovery_firewall() {
   if [[ "$capture_enabled" == "1" ]]; then
     /usr/local/bin/capture-copilot-destinations.sh start "$capture_dir"
     printf 'Discovery capture started in %s\n' "$capture_dir"
-    printf 'Use capture-copilot-destinations.sh stop %s before exiting to extract DNS and TLS hostname lists.\n' "$capture_dir"
+    printf 'When done, exit the container (Ctrl+D). The pcap file persists on the host.\n'
+    printf 'Then extract DNS and TLS hostname lists with:\n'
+    printf '  docker run --rm --entrypoint capture-copilot-destinations.sh \\\n'
+    printf '    -v "$(pwd):/workspace" copilot-sandbox extract %s\n' "$capture_dir"
   fi
 }
 
@@ -144,7 +147,17 @@ case "$mode" in
     ;;
   discovery)
     apply_discovery_firewall
-    exec bash
+    setup_sandbox_user
+
+    # Run the interactive shell as the sandbox user so that files created
+    # during discovery (e.g. Copilot sessions in ~/.copilot, ~/.config/gh)
+    # are owned by the sandbox UID/GID — not root. This prevents permission
+    # errors when the container is later run in restricted mode.
+    # NET_RAW is kept (not dropped) so the sandbox user can run tcpdump if needed.
+    exec capsh \
+      --drop=cap_net_admin \
+      --user="$sandbox_user" \
+      -- -l
     ;;
   *)
     printf 'Unsupported DEV_CONTAINER_MODE: %s\n' "$mode" >&2

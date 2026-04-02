@@ -7,7 +7,7 @@ It packages a CLI-only Docker-based workspace for running GitHub Copilot CLI ins
 ## What is included
 
 - `Dockerfile` builds the image with Git, GitHub CLI, GitHub Copilot CLI, Java, Node.js, Angular CLI, AWS CLI, Azure CLI, `kubectl`, packet capture tools, and a non-root sandbox user created at runtime.
-- `entrypoint.sh` switches between `restricted` and `discovery` runtime modes. In restricted mode it drops `NET_ADMIN` and `NET_RAW` from the agent shell via `capsh` after setting up iptables as root.
+- `entrypoint.sh` switches between `restricted` and `discovery` runtime modes. In both modes it creates the sandbox user and drops to it via `capsh`. Restricted mode drops `NET_ADMIN` and `NET_RAW`; discovery mode drops only `NET_ADMIN` (keeping `NET_RAW` for tcpdump).
 - `refresh-ipset-allowlist.sh` resolves concrete hostnames into IPv4 and IPv6 `ipset` sets.
 - `capture-blocked-traffic.sh` runs as a background root daemon in restricted mode, logging every blocked outbound destination to `/workspace/.copilot-blocked/`.
 - `capture-copilot-destinations.sh` captures DNS and TLS metadata so you can refine your allowlist.
@@ -80,7 +80,7 @@ Then rebuild the image and restart the container.
 4. **Background daemons**: the ipset refresh loop and the blocked-traffic capture daemon are forked before the capability drop and retain their root capabilities to do their jobs.
 5. **Self-healing allowlist**: when a blocked IP maps to a domain that is already in `allowlist-domains.txt` or matches a wildcard pattern from `allowlist-proxy-domains.txt`, the daemon adds the IP to the active ipset on the fly. This cannot be exploited by the sandbox user: the internal lookup tables (DNS map, domain caches) are stored in a root-only directory (`/run/copilot-blocked-internal`, mode 700) inaccessible to the sandbox shell, and `CAP_NET_RAW` is dropped so DNS responses cannot be spoofed. Set `SELF_HEALING_ENABLED=0` to disable self-healing entirely and use logging-only mode.
 
-Discovery mode runs as root with unrestricted egress and is intended for supervised traffic observation only.
+Discovery mode runs as the sandbox user with unrestricted egress and `NET_RAW` retained (for tcpdump). It is intended for supervised traffic observation only.
 
 ## Public customization points
 

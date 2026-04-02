@@ -11,7 +11,7 @@ Usage:
 Commands:
   build       Build the dev-container image from this asset directory
   restricted  Run the container with the firewall enabled (agent runs as non-root, NET_ADMIN/NET_RAW dropped)
-  discovery   Run the container with unrestricted egress and background capture (runs as root)
+  discovery   Run the container with unrestricted egress and background capture (runs as sandbox user)
 
 Environment variables:
   IMAGE_NAME          Image to use or build (default: copilot-sandbox)
@@ -81,12 +81,13 @@ run_container() {
   local capabilities=(--cap-add=NET_ADMIN --cap-add=NET_RAW)
 
   # In restricted mode, config dirs are mounted into the sandbox user's home.
-  # In discovery mode, the container runs as root so configs go to /root.
+  # In discovery mode, configs also mount into the sandbox user's home so that
+  # files created during discovery (e.g. Copilot sessions) have correct ownership
+  # when the container is later run in restricted mode.
   local sandbox_username="${SANDBOX_USER:-$(id -un)}"
   local dev_home="/home/$sandbox_username"
   if [[ "$mode" == "discovery" ]]; then
     capture_enabled="1"
-    dev_home="/root"
     mkdir -p "$workspace_dir/$capture_dir_name"
   fi
 
