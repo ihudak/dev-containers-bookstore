@@ -95,6 +95,7 @@ generate_allowlists() {
     include_if_enabled  "$domains_d/claude-code.txt"     claude-code
     include_if_enabled  "$domains_d/codex.txt"           codex
     include_if_enabled  "$domains_d/gemini.txt"          gemini
+    include_if_enabled  "$domains_d/yarn.txt"            yarn
     include_if_enabled  "$domains_d/kubectl.txt"         kubectl
     include_if_enabled  "$domains_d/aws-cli.txt"         aws-cli
     include_if_enabled  "$domains_d/azure-cli.txt"       azure-cli
@@ -143,6 +144,7 @@ build_args_from_config() {
     "azure-cli:INSTALL_AZURE_CLI"
     "github-cli:INSTALL_GITHUB_CLI"
     "angular-cli:INSTALL_ANGULAR_CLI"
+    "yarn:INSTALL_YARN"
     "dtctl:INSTALL_DTCTL"
     "dtmgd:INSTALL_DTMGD"
   )
@@ -268,6 +270,9 @@ run_container() {
   fi
   if is_enabled gemini; then
     add_mount_if_exists config_mount_flags "$HOME/.gemini" "$dev_home/.gemini"
+  fi
+  if is_enabled yarn; then
+    add_mount_if_exists config_mount_flags "$HOME/.yarn" "$dev_home/.yarn"
   fi
   if is_enabled aws-cli; then
     add_mount_if_exists config_mount_flags "$HOME/.aws" "$dev_home/.aws"

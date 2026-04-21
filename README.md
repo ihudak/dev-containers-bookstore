@@ -89,6 +89,7 @@ Each directory is only mounted when its corresponding component is enabled in `s
 | `~/.aws` | `~/.aws` | read-write | `aws-cli` |
 | `~/.azure` | `~/.azure` | read-write | `azure-cli` |
 | `~/.kube` | `~/.kube` | read-write | `kubectl` |
+| `~/.yarn` | `~/.yarn` | read-write | `yarn` |
 | `~/.config/dtctl` | `~/.config/dtctl` | read-write | `dtctl` |
 | `~/.config/dtmgd` | `~/.config/dtmgd` | read-write | `dtmgd` |
 
