@@ -1,0 +1,6 @@
+# Gemini CLI (Google)
+generativelanguage.googleapis.com
+oauth2.googleapis.com
+accounts.google.com
+gemini.google.com
+storage.googleapis.com
