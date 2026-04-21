@@ -1,0 +1,2 @@
+# kubectl
+dl.k8s.io

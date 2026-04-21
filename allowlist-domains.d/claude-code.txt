@@ -1,0 +1,7 @@
+# Claude Code (Anthropic)
+api.anthropic.com
+claude.ai
+statsig.anthropic.com
+statsigapi.net
+sentry.io
+o4507156944379904.ingest.sentry.io

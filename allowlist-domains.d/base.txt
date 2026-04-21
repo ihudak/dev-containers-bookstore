@@ -1,0 +1,32 @@
+# Ubuntu apt repositories
+archive.ubuntu.com
+security.ubuntu.com
+ppa.launchpad.net
+keyserver.ubuntu.com
+
+# Node.js (always installed as the npm base)
+deb.nodesource.com
+registry.npmjs.org
+npmjs.org
+npmjs.com
+registry.npmjs.com
+skimdb.npmjs.com
+
+# GitHub — git operations and image build downloads
+github.com
+api.github.com
+raw.githubusercontent.com
+objects.githubusercontent.com
+codeload.github.com
+lfs.github.com
+github-cloud.githubusercontent.com
+github-cloud.s3.amazonaws.com
+user-images.githubusercontent.com
+release-assets.githubusercontent.com
+
+# Common Node.js / npm project dependencies
+repo.yarnpkg.com
+registry.yarnpkg.com
+cdn.cypress.io
+download.cypress.io
+opencollective.com

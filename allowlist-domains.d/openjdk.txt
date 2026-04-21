@@ -1,0 +1,8 @@
+# Java build tools — included when any JDK variant is enabled
+repo.maven.apache.org
+plugins.gradle.org
+plugins-artifacts.gradle.org
+services.gradle.org
+
+# Adoptium Temurin release API (OpenJDK 25 downloads at build time)
+api.adoptium.net

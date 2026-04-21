@@ -1,0 +1,3 @@
+# Dynatrace (dtctl / dtmgd)
+# Specific tenant or managed-cluster URLs go here; wildcard patterns are in
+# allowlist-proxy-domains.d/dynatrace.txt and handled by the self-healing daemon.

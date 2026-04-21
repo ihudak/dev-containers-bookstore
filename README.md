@@ -6,25 +6,24 @@ It packages a CLI-only Docker-based workspace for running AI coding agents (GitH
 
 ## What is included
 
-- `Dockerfile` builds the image with Git, GitHub CLI, GitHub Copilot CLI, Kiro CLI (optional), Claude Code, Codex CLI, Java, Node.js, Angular CLI, AWS CLI, Azure CLI, `kubectl`, packet capture tools, and a non-root sandbox user created at runtime.
+- `Dockerfile` builds the image from a configurable set of optional components: AI agents (GitHub Copilot CLI, Kiro CLI, Claude Code, Codex CLI), JVM toolchains (OpenJDK 21/25, GraalVM CE 25), cloud CLIs (AWS, Azure, kubectl, GitHub CLI), dev tools (Angular CLI), and Dynatrace CLIs (dtctl, dtmgd). Node.js, git, packet-capture tools, and the non-root sandbox user are always included.
+- `sandbox.conf` controls which optional components are built into the image and which credential directories are mounted at runtime.
 - `entrypoint.sh` applies either a restricted firewall or a discovery mode at container startup. In both modes it creates the sandbox user and drops to it via `capsh`. Restricted mode drops `NET_ADMIN` and `NET_RAW`; discovery mode drops only `NET_ADMIN` (keeping `NET_RAW` for tcpdump).
 - `refresh-ipset-allowlist.sh` resolves the concrete allowlist domains into IPv4 and IPv6 `ipset` sets.
 - `capture-blocked-traffic.sh` runs as a background root daemon in restricted mode, logging every blocked outbound destination to `/workspace/.agent-blocked/`.
 - `capture-agent-destinations.sh` helps you discover additional AI-agent-related DNS and TLS destinations in discovery mode.
-- `allowlist-domains.txt` contains the concrete FQDN allowlist for this corporate example, including Copilot, Kiro, and internal endpoints.
-- `allowlist-cidrs.txt` contains explicit IP and CIDR entries, typically loopback plus narrow proxy ranges.
-- `allowlist-proxy-domains.txt` contains the wildcard domain patterns (Copilot, Kiro) used by the self-healing daemon for reactive auto-allowing, and optionally by an upstream proxy or FQDN-aware firewall.
-- `runme.sh` is the convenience wrapper for building the image and running the container.
+- `allowlist-domains.d/`, `allowlist-proxy-domains.d/`, `allowlist-cidrs.d/` contain per-component allowlist fragments. `runme.sh build` assembles the active fragments into the three `allowlist-*.txt` files that the Dockerfile copies into the image. Each directory also contains a `custom.txt` file that is always included regardless of which components are enabled.
+- `runme.sh` is the entry point for building and running the container.
 
 ## Usage
 
-Build the image:
+Edit `sandbox.conf` to choose which optional components to include, then build the image:
 
 ```bash
 ./runme.sh build
 ```
 
-During build, `runme.sh` auto-detects whether Kiro CLI should be installed. If `~/.kiro` exists on the host or `kiro.dev` is reachable, Kiro CLI is included in the image. Otherwise the build proceeds without it — no failure either way.
+`runme.sh build` reads `sandbox.conf`, assembles the three `allowlist-*.txt` files from the matching fragments in `allowlist-*.d/`, and passes a `--build-arg` flag for each component to `docker build`. The generated `allowlist-*.txt` files are gitignored; the `*.d/` fragment directories are the source of truth.
 
 Run in restricted mode with the firewall enabled:
 
@@ -75,20 +74,22 @@ Each path is mounted at `/repos/<basename>` inside the container.
 
 The container automatically mounts the following directories from the host (if they exist) into the sandbox user's home:
 
-| Host directory | Container path | Mode |
-|---|---|---|
-| `~/.ssh` (or `SSH_SCOPE_DIR`) | `~/.ssh` | read-only |
-| `~/.config/gh` | `~/.config/gh` | read-write |
-| `~/.copilot` | `~/.copilot` | read-write |
-| `~/.kiro` | `~/.kiro` | read-write |
-| `~/.local/share/kiro-cli` | `~/.local/share/kiro-cli` | read-write |
-| `~/.claude` | `~/.claude` | read-write |
-| `~/.codex` | `~/.codex` | read-write |
-| `~/.aws` | `~/.aws` | read-write |
-| `~/.azure` | `~/.azure` | read-write |
-| `~/.kube` | `~/.kube` | read-write |
+Each directory is only mounted when its corresponding component is enabled in `sandbox.conf`. Missing directories are silently skipped.
 
-Missing directories are silently skipped.
+| Host directory | Container path | Mode | Component |
+|---|---|---|---|
+| `~/.ssh` (or `SSH_SCOPE_DIR`) | `~/.ssh` | read-only | always |
+| `~/.config/gh` | `~/.config/gh` | read-write | `github-cli` or `copilot` |
+| `~/.copilot` | `~/.copilot` | read-write | `copilot` |
+| `~/.kiro` | `~/.kiro` | read-write | `kiro` |
+| `~/.local/share/kiro-cli` | `~/.local/share/kiro-cli` | read-write | `kiro` |
+| `~/.claude` | `~/.claude` | read-write | `claude-code` |
+| `~/.codex` | `~/.codex` | read-write | `codex` |
+| `~/.aws` | `~/.aws` | read-write | `aws-cli` |
+| `~/.azure` | `~/.azure` | read-write | `azure-cli` |
+| `~/.kube` | `~/.kube` | read-write | `kubectl` |
+| `~/.config/dtctl` | `~/.config/dtctl` | read-write | `dtctl` |
+| `~/.config/dtmgd` | `~/.config/dtmgd` | read-write | `dtmgd` |
 
 ## Reviewing blocked traffic
 
@@ -104,13 +105,14 @@ To update the allowlist after a session:
 
 ```bash
 cat /workspace/.agent-blocked/blocked-domains.txt
-# copy the domain lines (below the comment header) → paste into allowlist-domains.txt
+# copy the domain lines → paste into allowlist-domains.d/custom.txt
+#   (or into the relevant component fragment if you know which component needs them)
 
 cat /workspace/.agent-blocked/blocked-ips.txt
-# copy the IP lines → paste into allowlist-cidrs.txt
+# copy the IP lines → paste into allowlist-cidrs.d/custom.txt
 ```
 
-Then rebuild the image and restart the container.
+Then rebuild the image with `./runme.sh build` and restart the container.
 
 ## Security model (restricted mode)
 
@@ -124,11 +126,11 @@ Discovery mode runs as the sandbox user with unrestricted egress and `NET_RAW` r
 
 ## Corporate customization points
 
-- Update `allowlist-domains.txt` with your actual environments, MCP endpoints, artifact repositories, and Git hosts.
-- If agent traffic must go through a corporate proxy, keep wildcard domains in `allowlist-proxy-domains.txt` and allow only the proxy IPs in `allowlist-cidrs.txt`.
+- Edit `sandbox.conf` to enable only the components your team actually uses.
+- Add environment-specific FQDNs (internal Git, artifact repos, MCP endpoints, search engines) to `allowlist-domains.d/custom.txt`.
+- If agent traffic must go through a corporate proxy, add wildcard patterns to `allowlist-proxy-domains.d/custom.txt` and allow only the proxy IPs in `allowlist-cidrs.d/custom.txt`.
 - The sandbox user identity (`SANDBOX_UID`, `SANDBOX_GID`, `SANDBOX_USER`, `SANDBOX_GROUP`) is detected automatically from the host user at runtime. No build-time args needed.
 - Review the default values in `runme.sh`, especially `IMAGE_NAME` and `SSH_SCOPE_DIR`, before publishing this into a separate repository.
-- Mount only the host credentials you actually need.
 
 ## Important notes
 

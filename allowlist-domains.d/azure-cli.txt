@@ -1,0 +1,3 @@
+# Azure CLI
+aka.ms
+packages.microsoft.com

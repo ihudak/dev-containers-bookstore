@@ -1,0 +1,3 @@
+# Codex CLI (OpenAI)
+api.openai.com
+openai.com

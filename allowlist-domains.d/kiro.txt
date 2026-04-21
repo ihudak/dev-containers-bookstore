@@ -1,0 +1,10 @@
+# Kiro CLI
+app.kiro.dev
+cli.kiro.dev
+kiro.dev
+prod.us-east-1.auth.desktop.kiro.dev
+prod.us-east-1.telemetry.desktop.kiro.dev
+prod.download.desktop.kiro.dev
+q.us-east-1.amazonaws.com
+q.eu-central-1.amazonaws.com
+desktop-release.q.us-east-1.amazonaws.com

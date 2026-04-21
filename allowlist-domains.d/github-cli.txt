@@ -1,0 +1,5 @@
+# GitHub CLI
+cli.github.com
+uploads.github.com
+api.mcp.github.com
+scanning-api.github.com

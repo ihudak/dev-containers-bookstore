@@ -6,13 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A CLI-only Docker workspace for running AI coding agents (GitHub Copilot CLI, Kiro CLI, Claude Code, Codex CLI, etc.) inside an isolated container with deny-by-default outbound network controls and a non-root agent shell. It is intentionally not a VS Code dev container.
 
+## Component configuration
+
+`sandbox.conf` is the single source of truth for which optional components are included. Set a component to `ON` or `OFF` and rebuild. The format is strictly `component=ON` or `component=OFF`, one per line; comments start with `#`.
+
+Optional components: `copilot`, `kiro`, `claude-code`, `codex`, `openjdk-21`, `openjdk-25`, `graalvm-25`, `kubectl`, `aws-cli`, `azure-cli`, `github-cli`, `angular-cli`, `dtctl`, `dtmgd`.
+
 ## Commands
 
 **Build the image:**
 ```bash
 ./runme.sh build [image-name]
 ```
-`runme.sh` auto-detects whether to include Kiro CLI: it passes `--build-arg INSTALL_KIRO=1` only when `~/.kiro` exists on the host or `kiro.dev` is reachable.
+`runme.sh build` reads `sandbox.conf`, assembles `allowlist-domains.txt`, `allowlist-proxy-domains.txt`, and `allowlist-cidrs.txt` from the `*.d/` fragment directories, then calls `docker build` with one `--build-arg` per component. The generated `allowlist-*.txt` files are gitignored; always use `./runme.sh build`, not `docker build` directly.
 
 **Run the container:**
 ```bash
@@ -66,15 +72,21 @@ Two background tshark processes:
 
 ### Allowlist files
 
-| File | Purpose |
-|------|---------|
-| `allowlist-domains.txt` | Concrete FQDNs; resolved to IPs at startup and every 60 s |
-| `allowlist-cidrs.txt` | Literal IPs and CIDRs added directly to ipset |
-| `allowlist-proxy-domains.txt` | Wildcard patterns (e.g. `*.githubcopilot.com`) used only by the self-healing daemon for reactive IP matching |
+The three `allowlist-*.txt` files baked into the image are assembled at build time from fragment directories:
 
-### Conditional Kiro CLI installation
+| Directory | Generated file | Always-included file |
+|-----------|---------------|----------------------|
+| `allowlist-domains.d/` | `allowlist-domains.txt` | `base.txt`, `custom.txt` |
+| `allowlist-proxy-domains.d/` | `allowlist-proxy-domains.txt` | `custom.txt` |
+| `allowlist-cidrs.d/` | `allowlist-cidrs.txt` | `base.txt`, `custom.txt` |
 
-The `Dockerfile` accepts `ARG INSTALL_KIRO=0`. When `1`, the Kiro install script runs and the three Kiro binaries are copied to `/usr/local/bin`. The `runme.sh` build function sets this automatically.
+Per-component fragments (`github-copilot.txt`, `kiro.txt`, `claude-code.txt`, `codex.txt`, `kubectl.txt`, `aws-cli.txt`, `azure-cli.txt`, `dynatrace.txt`, `openjdk.txt`) are only concatenated when the matching component is `ON` in `sandbox.conf`. The `dynatrace.txt` fragment is included when either `dtctl` or `dtmgd` is enabled; `openjdk.txt` when any JDK variant is enabled.
+
+To add domains not tied to any component (e.g. `google.com`, internal registries, MCP endpoints), edit the appropriate `custom.txt` file in the relevant `*.d/` directory.
+
+### Conditional installs in the Dockerfile
+
+Every optional component has a corresponding `ARG INSTALL_<COMPONENT>=0|1` declared immediately before its `RUN` block. The npm-based tools (Copilot, Angular CLI, Claude Code, Codex) are installed in a single `RUN` block that assembles a `$pkgs` string and runs `npm install -g` only if at least one is enabled. The dtctl/dtmgd block skips entirely when both are disabled.
 
 ### Sandbox user identity
 

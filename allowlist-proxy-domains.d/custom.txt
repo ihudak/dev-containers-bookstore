@@ -1,0 +1,6 @@
+# custom.txt — wildcard proxy-domain patterns, always included.
+# Used by the self-healing daemon to reactively allow IPs whose resolved domain
+# matches a pattern here. Format: *.example.com
+#
+# Examples:
+#   *.your-cdn.example.com

@@ -1,0 +1,3 @@
+*.dynatrace.com
+*.dynalabs.io
+*.dynatrace-managed.com

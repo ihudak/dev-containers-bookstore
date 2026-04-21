@@ -1,0 +1,7 @@
+# custom.txt — always included regardless of which components are enabled.
+# Add explicit proxy IPs or narrow CIDRs here when agent traffic routes through
+# a corporate proxy. Do not use broad catch-all ranges (0.0.0.0/0, ::/0).
+#
+# Examples:
+#   10.20.30.40/32    # corporate proxy
+#   2001:db8::/48     # corporate IPv6 range
