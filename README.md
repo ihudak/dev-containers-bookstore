@@ -55,7 +55,7 @@ The container prints this command with the correct path when discovery mode star
 - DNS queries — hostnames the container attempted to resolve.
 - TLS SNI hostnames — HTTPS endpoints presented during TLS handshakes.
 
-Add the discovered hostnames to `allowlist-domains.txt`, rebuild the image, and switch to restricted mode.
+Add the discovered hostnames to `allowlist-domains.d/custom.txt`, rebuild the image with `./runme.sh build`, and switch to restricted mode.
 
 ## Mounting additional repositories
 
@@ -98,8 +98,8 @@ When running in restricted mode, blocked outbound destinations are logged automa
 | File | Purpose |
 |------|---------|
 | `blocked.log` | Timestamped log of every blocked connection attempt |
-| `blocked-domains.txt` | Deduplicated domain list — copy-paste directly into `allowlist-domains.txt` |
-| `blocked-ips.txt` | Deduplicated IPs with no known domain — copy-paste into `allowlist-cidrs.txt` |
+| `blocked-domains.txt` | Deduplicated domain list — copy-paste into `allowlist-domains.d/custom.txt` |
+| `blocked-ips.txt` | Deduplicated IPs with no known domain — copy-paste into `allowlist-cidrs.d/custom.txt` |
 
 To update the allowlist after a session:
 
@@ -124,6 +124,27 @@ Then rebuild the image with `./runme.sh build` and restart the container.
 
 Discovery mode runs as the sandbox user with unrestricted egress and `NET_RAW` retained (for tcpdump). It is intended for supervised traffic observation only.
 
+## Allowlist structure
+
+Three `*.d/` directories hold the source-of-truth fragment files. `runme.sh build` assembles them into the `allowlist-*.txt` files that get baked into the image.
+
+| Directory | Controls | Always included | Per-component |
+|-----------|----------|-----------------|---------------|
+| `allowlist-domains.d/` | Concrete FQDNs resolved to IPs at startup and every 60 s | `base.txt`, `custom.txt` | one file per component |
+| `allowlist-proxy-domains.d/` | Wildcard patterns used by the self-healing daemon (e.g. `*.githubcopilot.com`) | `custom.txt` | `github-copilot.txt`, `kiro.txt`, `dynatrace.txt` |
+| `allowlist-cidrs.d/` | Literal IP addresses and CIDR ranges added directly to ipset | `base.txt`, `custom.txt` | `github-copilot.txt` |
+
+**Where to put your additions:**
+
+| What you want to add | File to edit |
+|----------------------|-------------|
+| A domain needed by an enabled component (e.g. a missing Copilot endpoint) | `allowlist-domains.d/<component>.txt` |
+| A domain not tied to any component (search engine, internal registry, MCP server) | `allowlist-domains.d/custom.txt` |
+| A wildcard pattern for the self-healing daemon | `allowlist-proxy-domains.d/custom.txt` |
+| A corporate proxy IP or narrow CIDR | `allowlist-cidrs.d/custom.txt` |
+
+After editing any fragment file, run `./runme.sh build` to regenerate the image.
+
 ## Corporate customization points
 
 - Edit `sandbox.conf` to enable only the components your team actually uses.
@@ -134,7 +155,7 @@ Discovery mode runs as the sandbox user with unrestricted egress and `NET_RAW` r
 
 ## Important notes
 
-- Plain `iptables` cannot pre-resolve wildcard domains such as `*.githubcopilot.com` or `*.kiro.dev` into IP addresses. The self-healing daemon handles this reactively by auto-allowing IPs whose resolved domains match wildcard patterns in `allowlist-proxy-domains.txt`. An upstream proxy provides proactive enforcement if available.
-- The concrete domains in `allowlist-domains.txt` are a practical baseline, not a guarantee that every future agent endpoint is covered.
+- Plain `iptables` cannot pre-resolve wildcard domains such as `*.githubcopilot.com` or `*.kiro.dev` into IP addresses. The self-healing daemon handles this reactively by auto-allowing IPs whose resolved domains match wildcard patterns in `allowlist-proxy-domains.d/`. An upstream proxy provides proactive enforcement if available.
+- The per-component domain fragments are a practical baseline, not a guarantee that every future agent endpoint is covered. Use discovery mode to find gaps.
 - The asset set is intentionally CLI-only and does not depend on VS Code dev containers.
-- Kiro CLI installation is conditional: it is only included in the image when `~/.kiro` exists on the host or `kiro.dev` is reachable at build time. Other users who cannot access `kiro.dev` get a working image without Kiro.
+- All optional components — including Kiro CLI — are controlled solely by `sandbox.conf`. There is no runtime auto-detection.

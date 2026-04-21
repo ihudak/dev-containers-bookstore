@@ -65,10 +65,10 @@ Two background tshark processes:
 - **DNS map builder** — sniffs port-53 responses, builds `/run/agent-blocked-internal/dns-map.txt` (IP → FQDN), stored in a root-only directory inaccessible to the sandbox user.
 - **NFLOG watcher** — reads packets from `nflog:100`, correlates each destination IP against the DNS map, and appends to:
   - `blocked.log` — full timestamped log
-  - `blocked-domains.txt` — deduplicated domains for copy-paste into `allowlist-domains.txt`
-  - `blocked-ips.txt` — IPs with no known domain, for `allowlist-cidrs.txt`
+  - `blocked-domains.txt` — deduplicated domains for copy-paste into `allowlist-domains.d/custom.txt`
+  - `blocked-ips.txt` — IPs with no known domain, for `allowlist-cidrs.d/custom.txt`
 
-**Self-healing** (on by default): if a blocked IP resolves to a domain already in `allowlist-domains.txt` or matching a wildcard in `allowlist-proxy-domains.txt`, the daemon calls `ipset add` immediately without waiting for the 60-second refresh loop. This handles dynamic IPs behind CDNs (e.g. `*.githubcopilot.com`).
+**Self-healing** (on by default): if a blocked IP resolves to a domain already in the baked-in `/tmp/allowlist-domains.txt` or matching a wildcard in `/tmp/allowlist-proxy-domains.txt` (both assembled at build time from the `*.d/` fragments), the daemon calls `ipset add` immediately without waiting for the 60-second refresh loop. This handles dynamic IPs behind CDNs (e.g. `*.githubcopilot.com`).
 
 ### Allowlist files
 
@@ -94,7 +94,7 @@ No user is baked into the image. `entrypoint.sh` calls `useradd`/`usermod` at ru
 
 ## Corporate customization
 
-- Add environment-specific FQDNs (Dynatrace, internal Git, artifact repos, MCP endpoints) to `allowlist-domains.txt`.
-- If agent traffic routes through a corporate proxy, keep wildcard domains in `allowlist-proxy-domains.txt` and allow only proxy IPs in `allowlist-cidrs.txt`.
+- Edit `sandbox.conf` to enable only the components your team uses.
+- Add environment-specific FQDNs (internal Git, artifact repos, MCP endpoints) to `allowlist-domains.d/custom.txt`.
+- If agent traffic routes through a corporate proxy, add wildcard patterns to `allowlist-proxy-domains.d/custom.txt` and proxy IPs/CIDRs to `allowlist-cidrs.d/custom.txt`.
 - Review `IMAGE_NAME` and `SSH_SCOPE_DIR` defaults in `runme.sh` before publishing.
-- `runme.sh` also mounts `~/.config/dtctl` and `~/.config/dtmgd` into the sandbox home when they exist on the host.

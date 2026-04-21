@@ -187,6 +187,17 @@ add_mount_if_exists() {
   fi
 }
 
+# Same as add_mount_if_exists but for individual files.
+add_file_mount_if_exists() {
+  local -n _flags=$1
+  local original_src="$2" dst="$3" opts="${4:-rw}"
+  local src
+  src="$(resolve_path "$original_src")"
+  if [[ -f "$src" ]]; then
+    _flags+=(-v "$src:$dst:$opts")
+  fi
+}
+
 run_container() {
   check_config
   local mode="$1"
@@ -222,7 +233,7 @@ run_container() {
       dir="${entry%%:*}"
       opt="${entry##*:}"
       [[ "$opt" == "$dir" ]] && opt="rw"
-      real_dir="$(resolve_path "$dir")"
+      real_dir="$(resolve_path "${dir/#\~/$HOME}")"
       if [[ ! -d "$real_dir" ]]; then
         printf 'ERROR: EXTRA_MOUNTS path does not exist: %s\n' "$dir" >&2
         exit 1
@@ -247,7 +258,8 @@ run_container() {
     add_mount_if_exists config_mount_flags "$HOME/.local/share/kiro-cli" "$dev_home/.local/share/kiro-cli"
   fi
   if is_enabled claude-code; then
-    add_mount_if_exists config_mount_flags "$HOME/.claude" "$dev_home/.claude"
+    add_mount_if_exists      config_mount_flags "$HOME/.claude"      "$dev_home/.claude"
+    add_file_mount_if_exists config_mount_flags "$HOME/.claude.json" "$dev_home/.claude.json"
   fi
   if is_enabled codex; then
     add_mount_if_exists config_mount_flags "$HOME/.codex" "$dev_home/.codex"
