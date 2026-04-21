@@ -101,12 +101,14 @@ ARG INSTALL_COPILOT=1
 ARG INSTALL_ANGULAR_CLI=1
 ARG INSTALL_CLAUDE_CODE=1
 ARG INSTALL_CODEX=0
+ARG INSTALL_GEMINI=0
 RUN set -e; \
     pkgs=""; \
     if [ "$INSTALL_COPILOT"     = "1" ]; then pkgs="$pkgs @github/copilot"; fi; \
     if [ "$INSTALL_ANGULAR_CLI" = "1" ]; then pkgs="$pkgs @angular/cli"; fi; \
     if [ "$INSTALL_CLAUDE_CODE" = "1" ]; then pkgs="$pkgs @anthropic-ai/claude-code"; fi; \
     if [ "$INSTALL_CODEX"       = "1" ]; then pkgs="$pkgs @openai/codex"; fi; \
+    if [ "$INSTALL_GEMINI"      = "1" ]; then pkgs="$pkgs @google/gemini-cli"; fi; \
     if [ -n "$pkgs" ]; then npm install -g $pkgs; fi
 
 # ── Optional: Kiro CLI ──────────────────────────────────────────────────────────

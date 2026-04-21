@@ -94,6 +94,7 @@ generate_allowlists() {
     include_if_enabled  "$domains_d/kiro.txt"            kiro
     include_if_enabled  "$domains_d/claude-code.txt"     claude-code
     include_if_enabled  "$domains_d/codex.txt"           codex
+    include_if_enabled  "$domains_d/gemini.txt"          gemini
     include_if_enabled  "$domains_d/kubectl.txt"         kubectl
     include_if_enabled  "$domains_d/aws-cli.txt"         aws-cli
     include_if_enabled  "$domains_d/azure-cli.txt"       azure-cli
@@ -133,6 +134,7 @@ build_args_from_config() {
     "kiro:INSTALL_KIRO"
     "claude-code:INSTALL_CLAUDE_CODE"
     "codex:INSTALL_CODEX"
+    "gemini:INSTALL_GEMINI"
     "openjdk-21:INSTALL_OPENJDK_21"
     "openjdk-25:INSTALL_OPENJDK_25"
     "graalvm-25:INSTALL_GRAALVM_25"
@@ -263,6 +265,9 @@ run_container() {
   fi
   if is_enabled codex; then
     add_mount_if_exists config_mount_flags "$HOME/.codex" "$dev_home/.codex"
+  fi
+  if is_enabled gemini; then
+    add_mount_if_exists config_mount_flags "$HOME/.gemini" "$dev_home/.gemini"
   fi
   if is_enabled aws-cli; then
     add_mount_if_exists config_mount_flags "$HOME/.aws" "$dev_home/.aws"

@@ -6,7 +6,7 @@ It packages a CLI-only Docker-based workspace for running AI coding agents (GitH
 
 ## What is included
 
-- `Dockerfile` builds the image from a configurable set of optional components: AI agents (GitHub Copilot CLI, Kiro CLI, Claude Code, Codex CLI), JVM toolchains (OpenJDK 21/25, GraalVM CE 25), cloud CLIs (AWS, Azure, kubectl, GitHub CLI), dev tools (Angular CLI), and Dynatrace CLIs (dtctl, dtmgd). Node.js, git, packet-capture tools, and the non-root sandbox user are always included.
+- `Dockerfile` builds the image from a configurable set of optional components: AI agents (GitHub Copilot CLI, Kiro CLI, Claude Code, Codex CLI, Gemini CLI), JVM toolchains (OpenJDK 21/25, GraalVM CE 25), cloud CLIs (AWS, Azure, kubectl, GitHub CLI), dev tools (Angular CLI), and Dynatrace CLIs (dtctl, dtmgd). Node.js, git, packet-capture tools, and the non-root sandbox user are always included.
 - `sandbox.conf` controls which optional components are built into the image and which credential directories are mounted at runtime.
 - `entrypoint.sh` applies either a restricted firewall or a discovery mode at container startup. In both modes it creates the sandbox user and drops to it via `capsh`. Restricted mode drops `NET_ADMIN` and `NET_RAW`; discovery mode drops only `NET_ADMIN` (keeping `NET_RAW` for tcpdump).
 - `refresh-ipset-allowlist.sh` resolves the concrete allowlist domains into IPv4 and IPv6 `ipset` sets.
@@ -85,6 +85,7 @@ Each directory is only mounted when its corresponding component is enabled in `s
 | `~/.local/share/kiro-cli` | `~/.local/share/kiro-cli` | read-write | `kiro` |
 | `~/.claude` | `~/.claude` | read-write | `claude-code` |
 | `~/.codex` | `~/.codex` | read-write | `codex` |
+| `~/.gemini` | `~/.gemini` | read-write | `gemini` |
 | `~/.aws` | `~/.aws` | read-write | `aws-cli` |
 | `~/.azure` | `~/.azure` | read-write | `azure-cli` |
 | `~/.kube` | `~/.kube` | read-write | `kubectl` |
