@@ -1,4 +1,5 @@
 *.anthropic.com
+*.openai.com
 *.githubcopilot.com
 *.individual.githubcopilot.com
 *.business.githubcopilot.com

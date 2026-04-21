@@ -78,6 +78,10 @@ download.cypress.io
 opencollective.com
 registry.yarnpkg.com
 
+# Codex CLI (OpenAI)
+api.openai.com
+openai.com
+
 # Claude Code (Anthropic)
 api.anthropic.com
 claude.ai
