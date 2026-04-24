@@ -28,6 +28,7 @@ Environment variables:
                         EXTRA_MOUNTS="/path/to/a:ro /path/to/b"  # a=read-only, b=read-write
   SELF_HEALING_ENABLED  Set to 0 to disable self-healing allowlist (default: 1).
                         When disabled, blocked traffic is logged but IPs are never auto-allowed.
+  NO_CACHE            Set to 1 to pass --no-cache to docker build (default: unset, uses cache).
 
 Configuration:
   Edit sandbox.conf to enable or disable optional components before building.
@@ -165,6 +166,10 @@ build_image() {
 
   generate_allowlists
   build_args_from_config build_args
+
+  if [[ "${NO_CACHE:-0}" == "1" ]]; then
+    build_args+=(--no-cache)
+  fi
 
   docker build "${build_args[@]}" -t "$build_image_name" "$script_dir"
 }
@@ -313,6 +318,17 @@ run_container() {
 }
 
 # ── Entry point ────────────────────────────────────────────────────────────────
+
+# Parse --no-cache flag (can appear anywhere in args)
+args=()
+for arg in "$@"; do
+  if [[ "$arg" == "--no-cache" ]]; then
+    NO_CACHE=1
+  else
+    args+=("$arg")
+  fi
+done
+set -- "${args[@]+"${args[@]}"}"
 
 command="${1:-restricted}"
 

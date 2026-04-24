@@ -25,6 +25,15 @@ Edit `sandbox.conf` to choose which optional components to include, then build t
 
 `runme.sh build` reads `sandbox.conf`, assembles the three `allowlist-*.txt` files from the matching fragments in `allowlist-*.d/`, and passes a `--build-arg` flag for each component to `docker build`. The generated `allowlist-*.txt` files are gitignored; the `*.d/` fragment directories are the source of truth.
 
+To force a full rebuild from scratch (bypassing Docker's layer cache), pass `--no-cache` or set `NO_CACHE=1`:
+
+```bash
+./runme.sh build --no-cache
+NO_CACHE=1 ./runme.sh build
+```
+
+This is useful when you want to pick up newer versions of CLI tools installed via `curl`/`wget` inside the Dockerfile, since Docker cannot detect remote content changes automatically.
+
 Run in restricted mode with the firewall enabled:
 
 ```bash
