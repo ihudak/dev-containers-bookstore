@@ -1,0 +1,5 @@
+# pyenv — included when python versions are configured
+# pyenv itself is fetched from github.com (already in base.txt)
+# Python source tarballs
+www.python.org
+python.org

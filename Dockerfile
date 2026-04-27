@@ -15,51 +15,187 @@ RUN apt-get update && apt-get install -y \
   iptables ipset dnsutils \
   openssh-client \
   libcap2-bin \
-  unzip \
+  unzip zip \
   tcpdump \
   tshark && \
   rm -rf /var/lib/apt/lists/*
 
-# Node.js + npm (LTS) — always installed; required by optional npm-based agent tools
-RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
-  apt-get update && apt-get install -y nodejs && \
-  rm -rf /var/lib/apt/lists/*
+# ── nvm + Node.js ───────────────────────────────────────────────────────────────
+# nvm is always installed; the latest LTS is always present (required by AI agents).
+# NODE_EXTRA_VERSIONS: space-separated list of additional versions to install.
+ARG NODE_EXTRA_VERSIONS=""
+ENV NVM_DIR=/opt/nvm
+RUN mkdir -p "$NVM_DIR" && \
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/HEAD/install.sh | \
+      PROFILE=/dev/null bash && \
+    # Always install latest LTS
+    bash -c "source $NVM_DIR/nvm.sh && nvm install --lts && nvm alias default 'lts/*'" && \
+    # Install any extra versions requested
+    if [ -n "$NODE_EXTRA_VERSIONS" ]; then \
+      for ver in $NODE_EXTRA_VERSIONS; do \
+        bash -c "source $NVM_DIR/nvm.sh && nvm install $ver"; \
+      done; \
+    fi && \
+    # Symlink the default (latest LTS) node/npm/npx into PATH for non-nvm shells
+    bash -c "source $NVM_DIR/nvm.sh && \
+      ln -sf \$(nvm which default) /usr/local/bin/node && \
+      ln -sf \$(dirname \$(nvm which default))/npm /usr/local/bin/npm && \
+      ln -sf \$(dirname \$(nvm which default))/npx /usr/local/bin/npx"
+# Make nvm available in all bash shells
+RUN printf '\nexport NVM_DIR=%s\n[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"\n' "$NVM_DIR" \
+      >> /etc/bash.bashrc
 
-# ── Optional: OpenJDK 21 ────────────────────────────────────────────────────────
-ARG INSTALL_OPENJDK_21=1
-RUN if [ "$INSTALL_OPENJDK_21" = "1" ]; then \
-      apt-get update && apt-get install -y openjdk-21-jdk && \
-      rm -rf /var/lib/apt/lists/*; \
+# ── SDKMAN + JVM toolchains ─────────────────────────────────────────────────────
+# SDKMAN is installed system-wide under /opt/sdkman so it works for any user.
+# OPENJDK_VERSIONS / GRAALVM_VERSIONS / KOTLIN_VERSIONS / SCALA_VERSIONS /
+# MAVEN_VERSIONS / GRADLE_VERSIONS: space-separated version lists.
+ARG INSTALL_SDKMAN=0
+ARG OPENJDK_VERSIONS=""
+ARG GRAALVM_VERSIONS=""
+ARG KOTLIN_VERSIONS=""
+ARG SCALA_VERSIONS=""
+ARG MAVEN_VERSIONS=""
+ARG GRADLE_VERSIONS=""
+ENV SDKMAN_DIR=/opt/sdkman
+RUN if [ "$INSTALL_SDKMAN" = "1" ]; then \
+      apt-get update && apt-get install -y zip unzip curl bash && \
+      rm -rf /var/lib/apt/lists/* && \
+      curl -fsSL "https://get.sdkman.io" | SDKMAN_DIR="$SDKMAN_DIR" bash && \
+      chmod -R a+rX "$SDKMAN_DIR"; \
+    fi
+# Install each requested JVM candidate in a separate RUN so layer caching is useful.
+RUN if [ "$INSTALL_SDKMAN" = "1" ] && [ -n "$OPENJDK_VERSIONS" ]; then \
+      for ver in $OPENJDK_VERSIONS; do \
+        bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install java ${ver}-tem"; \
+      done && \
+      # Set the first listed version as default
+      first=$(echo $OPENJDK_VERSIONS | awk '{print $1}') && \
+      bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk default java ${first}-tem" && \
+      # Symlink java/javac into PATH
+      ln -sf "$SDKMAN_DIR/candidates/java/current/bin/java"  /usr/local/bin/java && \
+      ln -sf "$SDKMAN_DIR/candidates/java/current/bin/javac" /usr/local/bin/javac; \
+    fi
+RUN if [ "$INSTALL_SDKMAN" = "1" ] && [ -n "$GRAALVM_VERSIONS" ]; then \
+      for ver in $GRAALVM_VERSIONS; do \
+        bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install java ${ver}-graalce"; \
+      done && \
+      ln -sf "$SDKMAN_DIR/candidates/java/current/bin/native-image" /usr/local/bin/native-image || true; \
+    fi
+RUN if [ "$INSTALL_SDKMAN" = "1" ] && [ -n "$KOTLIN_VERSIONS" ]; then \
+      for ver in $KOTLIN_VERSIONS; do \
+        bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install kotlin $ver"; \
+      done && \
+      ln -sf "$SDKMAN_DIR/candidates/kotlin/current/bin/kotlin"  /usr/local/bin/kotlin && \
+      ln -sf "$SDKMAN_DIR/candidates/kotlin/current/bin/kotlinc" /usr/local/bin/kotlinc; \
+    fi
+RUN if [ "$INSTALL_SDKMAN" = "1" ] && [ -n "$SCALA_VERSIONS" ]; then \
+      for ver in $SCALA_VERSIONS; do \
+        bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install scala $ver"; \
+      done && \
+      ln -sf "$SDKMAN_DIR/candidates/scala/current/bin/scala"  /usr/local/bin/scala && \
+      ln -sf "$SDKMAN_DIR/candidates/scala/current/bin/scalac" /usr/local/bin/scalac; \
+    fi
+RUN if [ "$INSTALL_SDKMAN" = "1" ] && [ -n "$MAVEN_VERSIONS" ]; then \
+      for ver in $MAVEN_VERSIONS; do \
+        bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install maven $ver"; \
+      done && \
+      ln -sf "$SDKMAN_DIR/candidates/maven/current/bin/mvn" /usr/local/bin/mvn; \
+    fi
+RUN if [ "$INSTALL_SDKMAN" = "1" ] && [ -n "$GRADLE_VERSIONS" ]; then \
+      for ver in $GRADLE_VERSIONS; do \
+        bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install gradle $ver"; \
+      done && \
+      ln -sf "$SDKMAN_DIR/candidates/gradle/current/bin/gradle" /usr/local/bin/gradle; \
+    fi
+# Make SDKMAN available in all bash shells
+RUN if [ "$INSTALL_SDKMAN" = "1" ]; then \
+      printf '\nexport SDKMAN_DIR=%s\n[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ] && source "$SDKMAN_DIR/bin/sdkman-init.sh"\n' \
+        "$SDKMAN_DIR" >> /etc/bash.bashrc; \
     fi
 
-# ── Optional: OpenJDK 25 (Adoptium Temurin) ────────────────────────────────────
-ARG INSTALL_OPENJDK_25=0
-RUN if [ "$INSTALL_OPENJDK_25" = "1" ]; then \
-      set -eux; \
-      ARCH=$(uname -m | sed 's/x86_64/x64/; s/aarch64/aarch64/'); \
-      URL=$(curl -fsSL "https://api.adoptium.net/v3/assets/latest/25/hotspot?os=linux&architecture=${ARCH}&image_type=jdk" \
-            | grep -o '"link":"[^"]*"' | head -1 | sed 's/"link":"//; s/"$//'); \
-      mkdir -p /opt/jdk-25; \
-      curl -fsSL "$URL" | tar xz -C /opt/jdk-25 --strip-components=1; \
-      update-alternatives --install /usr/bin/java  java  /opt/jdk-25/bin/java  25000; \
-      update-alternatives --install /usr/bin/javac javac /opt/jdk-25/bin/javac 25000; \
+# ── pyenv + Python ──────────────────────────────────────────────────────────────
+# Python is always installed (latest stable). PYTHON_EXTRA_VERSIONS adds more.
+ARG PYTHON_EXTRA_VERSIONS=""
+ENV PYENV_ROOT=/opt/pyenv
+ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+RUN apt-get update && apt-get install -y \
+      build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+      libsqlite3-dev libncursesw5-dev xz-utils tk-dev libxml2-dev \
+      libxmlsec1-dev libffi-dev liblzma-dev && \
+    rm -rf /var/lib/apt/lists/* && \
+    curl -fsSL https://pyenv.run | PYENV_ROOT="$PYENV_ROOT" bash && \
+    chmod -R a+rX "$PYENV_ROOT" && \
+    # Always install latest stable Python
+    latest=$("$PYENV_ROOT/bin/pyenv" install --list | grep -E '^\s+3\.[0-9]+\.[0-9]+$' | tail -1 | tr -d ' ') && \
+    "$PYENV_ROOT/bin/pyenv" install "$latest" && \
+    "$PYENV_ROOT/bin/pyenv" global "$latest" && \
+    # Install extra versions
+    if [ -n "$PYTHON_EXTRA_VERSIONS" ]; then \
+      for ver in $PYTHON_EXTRA_VERSIONS; do \
+        "$PYENV_ROOT/bin/pyenv" install "$ver"; \
+      done; \
+    fi && \
+    # Symlink python3/pip3 into PATH
+    ln -sf "$PYENV_ROOT/shims/python3" /usr/local/bin/python3 && \
+    ln -sf "$PYENV_ROOT/shims/pip3"    /usr/local/bin/pip3
+RUN printf '\nexport PYENV_ROOT=%s\nexport PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"\n' \
+      "$PYENV_ROOT" >> /etc/bash.bashrc
+
+# ── rvm + Ruby (+ Rails) ────────────────────────────────────────────────────────
+# rvm is only installed when RUBY_VERSION is set.
+ARG RUBY_VERSION=""
+ARG RAILS_VERSION=""
+RUN if [ -n "$RUBY_VERSION" ]; then \
+      apt-get update && apt-get install -y gnupg2 && \
+      rm -rf /var/lib/apt/lists/* && \
+      # Import RVM GPG keys
+      gpg2 --keyserver keyserver.ubuntu.com \
+            --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 \
+                        7D2BAF1CF37B13E2069D6956105BD0E739499BDB && \
+      curl -fsSL https://get.rvm.io | bash -s stable && \
+      # Install Ruby
+      bash -lc "rvm install $RUBY_VERSION && rvm use $RUBY_VERSION --default" && \
+      # Install Rails if requested
+      if [ -n "$RAILS_VERSION" ]; then \
+        bash -lc "gem install rails -v $RAILS_VERSION --no-document"; \
+      fi && \
+      # Symlink ruby/gem/bundle into PATH
+      ln -sf /usr/local/rvm/rubies/default/bin/ruby /usr/local/bin/ruby && \
+      ln -sf /usr/local/rvm/rubies/default/bin/gem  /usr/local/bin/gem; \
+    fi
+RUN if [ -n "$RUBY_VERSION" ]; then \
+      printf '\n[ -s "/usr/local/rvm/scripts/rvm" ] && source "/usr/local/rvm/scripts/rvm"\n' \
+        >> /etc/bash.bashrc; \
     fi
 
-# ── Optional: GraalVM CE 25 + Native Image ─────────────────────────────────────
-ARG INSTALL_GRAALVM_25=0
-RUN if [ "$INSTALL_GRAALVM_25" = "1" ]; then \
-      set -eux; \
-      ARCH=$(uname -m | sed 's/x86_64/x64/; s/aarch64/aarch64/'); \
-      URL=$(curl -fsSL "https://api.github.com/repos/graalvm/graalvm-ce-builds/releases/latest" \
-            | grep '"browser_download_url"' \
-            | grep "_linux-${ARCH}_bin.tar.gz" \
-            | head -1 \
-            | sed 's/.*"browser_download_url": *"\([^"]*\)".*/\1/'); \
-      mkdir -p /opt/graalvm-25; \
-      curl -fsSL "$URL" | tar xz -C /opt/graalvm-25 --strip-components=1; \
-      update-alternatives --install /usr/bin/java         java         /opt/graalvm-25/bin/java         25100; \
-      update-alternatives --install /usr/bin/javac        javac        /opt/graalvm-25/bin/javac        25100; \
-      update-alternatives --install /usr/bin/native-image native-image /opt/graalvm-25/bin/native-image 25100; \
+# ── rustup + Rust ───────────────────────────────────────────────────────────────
+# RUST_TOOLCHAIN: stable | beta | nightly | specific version, or empty to skip.
+ARG RUST_TOOLCHAIN=""
+ENV RUSTUP_HOME=/opt/rustup
+ENV CARGO_HOME=/opt/cargo
+ENV PATH="$CARGO_HOME/bin:$PATH"
+RUN if [ -n "$RUST_TOOLCHAIN" ]; then \
+      curl -fsSL https://sh.rustup.rs | \
+        RUSTUP_HOME="$RUSTUP_HOME" CARGO_HOME="$CARGO_HOME" \
+        sh -s -- -y --no-modify-path --default-toolchain "$RUST_TOOLCHAIN" && \
+      chmod -R a+rX "$RUSTUP_HOME" "$CARGO_HOME"; \
+    fi
+RUN if [ -n "$RUST_TOOLCHAIN" ]; then \
+      printf '\nexport RUSTUP_HOME=%s\nexport CARGO_HOME=%s\nexport PATH="$CARGO_HOME/bin:$PATH"\n' \
+        "$RUSTUP_HOME" "$CARGO_HOME" >> /etc/bash.bashrc; \
+    fi
+
+# ── Go ──────────────────────────────────────────────────────────────────────────
+# GO_VERSION: e.g. "1.24.2", or empty to skip.
+ARG GO_VERSION=""
+ENV GOROOT=/usr/local/go
+ENV PATH="$GOROOT/bin:$PATH"
+RUN if [ -n "$GO_VERSION" ]; then \
+      ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/') && \
+      curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" \
+        | tar xz -C /usr/local && \
+      ln -sf /usr/local/go/bin/go   /usr/local/bin/go && \
+      ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt; \
     fi
 
 # ── Optional: kubectl ───────────────────────────────────────────────────────────
@@ -123,25 +259,19 @@ RUN if [ "$INSTALL_KIRO" = "1" ]; then \
     fi
 
 # ── Optional: dtctl and dtmgd ───────────────────────────────────────────────────
-ARG INSTALL_DTCTL=1
-ARG INSTALL_DTMGD=1
-RUN if [ "$INSTALL_DTCTL" = "1" ] || [ "$INSTALL_DTMGD" = "1" ]; then \
-      set -eux; \
-      ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/'); \
-      OS=$(uname -s | tr '[:upper:]' '[:lower:]'); \
-      if [ "$INSTALL_DTCTL" = "1" ]; then \
-        TAG=$(curl -fsSL https://api.github.com/repos/dynatrace-oss/dtctl/releases/latest | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/'); \
-        curl -fsSL "https://github.com/dynatrace-oss/dtctl/releases/download/${TAG}/dtctl_${TAG#v}_${OS}_${ARCH}.tar.gz" \
-          | tar xz -C /usr/local/bin dtctl; \
-        chmod +x /usr/local/bin/dtctl; \
-      fi; \
-      if [ "$INSTALL_DTMGD" = "1" ]; then \
-        TAG=$(curl -fsSL https://api.github.com/repos/dynatrace-oss/dtmgd/releases/latest | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/'); \
-        curl -fsSL "https://github.com/dynatrace-oss/dtmgd/releases/download/${TAG}/dtmgd_${TAG#v}_${OS}_${ARCH}.tar.gz" \
-          | tar xz -C /usr/local/bin dtmgd; \
-        chmod +x /usr/local/bin/dtmgd; \
-      fi; \
-    fi
+# DTCTL_VERSION / DTMGD_VERSION:
+#   "latest"  = auto-detect latest release from GitHub API
+#   "x.y.z"   = install that exact version (no API call, fully reproducible)
+#   ""        = skip
+# GITHUB_TOKEN is passed as a BuildKit secret (never stored in image layers).
+# Set it on the host to avoid GitHub API rate limits when using "latest".
+ARG DTCTL_VERSION="latest"
+ARG DTMGD_VERSION="latest"
+COPY install-dt-tools.sh /tmp/install-dt-tools.sh
+RUN --mount=type=secret,id=github_token \
+    DTCTL_VERSION="$DTCTL_VERSION" DTMGD_VERSION="$DTMGD_VERSION" \
+    GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    bash /tmp/install-dt-tools.sh
 
 COPY refresh-ipset-allowlist.sh /usr/local/bin/
 COPY capture-agent-destinations.sh /usr/local/bin/

@@ -1,0 +1,7 @@
+# rvm + Ruby + Rails — included when ruby is configured
+get.rvm.io
+rvm.io
+rubygems.org
+api.rubygems.org
+rubygems-updates.s3.amazonaws.com
+index.rubygems.org

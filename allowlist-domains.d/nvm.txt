@@ -1,0 +1,3 @@
+# nvm — included when node extra versions are configured
+# (nvm install script comes from raw.githubusercontent.com, already in base.txt)
+nodejs.org

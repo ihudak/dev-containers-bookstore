@@ -1,0 +1,5 @@
+# SDKMAN — included when any JVM component (openjdk, graalvm-ce, kotlin, scala, maven, gradle) is enabled
+get.sdkman.io
+api.sdkman.io
+vendors.sdkman.io
+dist.sdkman.io

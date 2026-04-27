@@ -4,10 +4,15 @@ This directory is the repo-ready asset bundle for the Public-flavored AI sandbox
 
 It packages a CLI-only Docker-based workspace for running AI coding agents (GitHub Copilot CLI, Kiro CLI, and others) inside an isolated container with deny-by-default outbound network controls and a non-root agent shell.
 
+## Requirements
+
+- **Docker ≥ 23** (BuildKit is required and is the default since Docker 23). Verify with `docker --version`.
+
 ## What is included
 
-- `Dockerfile` builds the image from a configurable set of optional components: AI agents (GitHub Copilot CLI, Kiro CLI, Claude Code, Codex CLI, Gemini CLI), JVM toolchains (OpenJDK 21/25, GraalVM CE 25), cloud CLIs (AWS, Azure, kubectl, GitHub CLI), dev tools (Angular CLI), and Dynatrace CLIs (dtctl, dtmgd). Node.js, git, packet-capture tools, and the non-root sandbox user are always included.
+- `Dockerfile` builds the image from a configurable set of optional components: AI agents (GitHub Copilot CLI, Kiro CLI, Claude Code, Codex CLI, Gemini CLI), JVM toolchains (via SDKMAN: OpenJDK, GraalVM CE, Kotlin, Scala, Maven, Gradle), Node.js versions (via nvm), Python versions (via pyenv), Ruby + Rails (via rvm), Rust (via rustup), Go, cloud CLIs (AWS, Azure, kubectl, GitHub CLI), dev tools (Angular CLI), and Dynatrace CLIs (dtctl, dtmgd). Node.js (latest LTS), Python (latest stable), git, packet-capture tools, and the non-root sandbox user are always included.
 - `sandbox.conf` controls which optional components are built into the image and which credential directories are mounted at runtime.
+- `install-dt-tools.sh` is a build-time helper script that installs dtctl and dtmgd from GitHub releases, with optional authentication via `GITHUB_TOKEN`.
 - `entrypoint.sh` applies either a restricted firewall or a discovery mode at container startup. In both modes it creates the sandbox user and drops to it via `capsh`. Restricted mode drops `NET_ADMIN` and `NET_RAW`; discovery mode drops only `NET_ADMIN` (keeping `NET_RAW` for tcpdump).
 - `refresh-ipset-allowlist.sh` resolves the concrete allowlist domains into IPv4 and IPv6 `ipset` sets.
 - `capture-blocked-traffic.sh` runs as a background root daemon in restricted mode, logging every blocked outbound destination to `/workspace/.agent-blocked/`.
@@ -47,6 +52,77 @@ Run in discovery mode to capture outbound destinations before tightening the all
 ```
 
 Inside the container, the repository is mounted at `/workspace`.
+
+## sandbox.conf — component configuration
+
+### Boolean components (ON / OFF)
+
+AI agents, cloud CLIs, and dev tools use simple `ON`/`OFF` flags:
+
+```bash
+copilot=ON
+kubectl=ON
+azure-cli=OFF
+```
+
+### Version-list components
+
+Language runtimes accept a comma-separated list of versions to install. The always-on baseline (latest LTS for Node, latest stable for Python) is installed regardless.
+
+```bash
+# Install OpenJDK 21 and 25 via SDKMAN (SDKMAN auto-installed when any JVM version is set)
+openjdk=21,25
+graalvm-ce=          # empty = skip
+kotlin=
+maven=3.9.9
+
+# Extra Node versions alongside the always-on latest LTS
+node=20,22
+
+# Extra Python versions alongside the always-on latest stable
+python=3.12,3.11
+
+# Ruby + Rails (rvm auto-installed when ruby is set; rails requires ruby)
+# SINGLE VERSION ONLY — unlike openjdk/node/python, ruby and rails do not
+# accept comma-separated lists. Specifying multiple versions will fail at build time.
+ruby=3.4.3
+rails=8.0.2
+
+# Rust toolchain: stable | beta | nightly | specific version
+rust=stable
+
+# Go (direct tarball from go.dev/dl)
+go=1.24.2
+```
+
+### Dynatrace CLIs (dtctl / dtmgd)
+
+These support three modes:
+
+```bash
+dtctl=ON        # auto-detect and install the latest release (uses GitHub API)
+dtctl=0.25.0    # install exactly v0.25.0 — no GitHub API call, fully reproducible
+dtctl=OFF       # skip entirely
+```
+
+When set to `ON`, the build calls the GitHub API to find the latest release. The unauthenticated rate limit is 60 requests/hour. If you hit it:
+
+**Option 1 — set a GitHub token** (raises limit to 5000 req/h, token never stored in the image):
+```bash
+export GITHUB_TOKEN=ghp_yourtoken
+./runme.sh build
+```
+
+**Option 2 — pin a specific version** (no API call at all):
+```bash
+# In sandbox.conf:
+dtctl=0.25.0
+dtmgd=0.0.23
+```
+
+If the API call fails (rate limit, bad token, or network error), the build prints a clear error message, skips the tool, and **continues successfully**. dtctl/dtmgd can be installed manually later.
+
+> **Note on token security:** `GITHUB_TOKEN` is passed as a [BuildKit secret](https://docs.docker.com/build/building/secrets/) — it is never written to any image layer or visible in `docker history`. Safe to use even if you plan to publish the image. Requires Docker ≥ 23 (BuildKit default).
 
 ## Extracting discovery results
 

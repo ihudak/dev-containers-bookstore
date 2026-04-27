@@ -1,0 +1,5 @@
+# Go — included when a Go version is configured
+go.dev
+dl.google.com
+proxy.golang.org
+sum.golang.org

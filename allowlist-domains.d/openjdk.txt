@@ -4,5 +4,9 @@ plugins.gradle.org
 plugins-artifacts.gradle.org
 services.gradle.org
 
-# Adoptium Temurin release API (OpenJDK 25 downloads at build time)
+# Adoptium Temurin (OpenJDK via SDKMAN)
 api.adoptium.net
+github.com/adoptium
+
+# GraalVM CE (via SDKMAN)
+github.com/graalvm
