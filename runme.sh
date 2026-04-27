@@ -185,8 +185,8 @@ generate_allowlists() {
     # dtctl/dtmgd use version values (ON, x.y.z) not boolean ON/OFF
     if any_active dtctl dtmgd; then include_fragment "$domains_d/dynatrace.txt"; fi
     # Version-manager fragments
-    include_if_has_versions  "$domains_d/sdkman.txt"          openjdk graalvm-ce kotlin scala maven gradle
-    include_if_has_versions  "$domains_d/openjdk.txt"         openjdk graalvm-ce
+    include_if_has_versions  "$domains_d/sdkman.txt"          openjdk graalvm-ce graalvm kotlin scala maven gradle
+    include_if_has_versions  "$domains_d/openjdk.txt"         openjdk graalvm-ce graalvm
     include_fragment         "$domains_d/nvm.txt"
     include_fragment         "$domains_d/pyenv.txt"
     include_if_has_versions  "$domains_d/rvm.txt"             ruby rails
@@ -233,7 +233,6 @@ build_args_from_config() {
     "aws-cli:INSTALL_AWS_CLI"
     "azure-cli:INSTALL_AZURE_CLI"
     "github-cli:INSTALL_GITHUB_CLI"
-    "angular-cli:INSTALL_ANGULAR_CLI"
     "yarn:INSTALL_YARN"
   )
   for mapping in "${bool_mappings[@]}"; do
@@ -257,8 +256,18 @@ build_args_from_config() {
     fi
   done
 
+  # ── angular-cli: ON = latest, version number = pinned, OFF = skip ─────────
+  local angular_raw; angular_raw=$(get_versions angular-cli)
+  if [[ "$angular_raw" == "ON" ]]; then
+    _args+=(--build-arg "ANGULAR_CLI_VERSION=latest")
+  elif [[ -n "$angular_raw" && "$angular_raw" != "OFF" ]]; then
+    _args+=(--build-arg "ANGULAR_CLI_VERSION=${angular_raw}")
+  else
+    _args+=(--build-arg "ANGULAR_CLI_VERSION=")
+  fi
+
   # ── SDKMAN: auto-on if any JVM component has versions ─────────────────────
-  local jvm_keys=(openjdk graalvm-ce kotlin scala maven gradle)
+  local jvm_keys=(openjdk graalvm-ce graalvm kotlin scala maven gradle)
   if any_has_versions "${jvm_keys[@]}"; then
     _args+=(--build-arg "INSTALL_SDKMAN=1")
   else
@@ -273,6 +282,9 @@ build_args_from_config() {
 
   ver="$(get_versions graalvm-ce)"
   _args+=(--build-arg "GRAALVM_VERSIONS=$(versions_to_space "$ver")")
+
+  ver="$(get_versions graalvm)"
+  _args+=(--build-arg "GRAALVM_ORACLE_VERSIONS=$(versions_to_space "$ver")")
 
   ver="$(get_versions kotlin)"
   _args+=(--build-arg "KOTLIN_VERSIONS=$(versions_to_space "$ver")")

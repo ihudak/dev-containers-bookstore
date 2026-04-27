@@ -57,6 +57,7 @@ RUN printf '\nexport NVM_DIR=%s\n[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nv
 ARG INSTALL_SDKMAN=0
 ARG OPENJDK_VERSIONS=""
 ARG GRAALVM_VERSIONS=""
+ARG GRAALVM_ORACLE_VERSIONS=""
 ARG KOTLIN_VERSIONS=""
 ARG SCALA_VERSIONS=""
 ARG MAVEN_VERSIONS=""
@@ -85,6 +86,17 @@ RUN if [ "$INSTALL_SDKMAN" = "1" ] && [ -n "$GRAALVM_VERSIONS" ]; then \
       ln -sf "$SDKMAN_DIR/candidates/java/current/bin/native-image" /usr/local/bin/native-image || true && \
       # Re-set OpenJDK as the default java if it was configured, since GraalVM
       # install may have changed the 'current' symlink.
+      if [ -n "$OPENJDK_VERSIONS" ]; then \
+        first=$(echo $OPENJDK_VERSIONS | awk '{print $1}') && \
+        bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk default java ${first}-tem"; \
+      fi; \
+    fi
+RUN if [ "$INSTALL_SDKMAN" = "1" ] && [ -n "$GRAALVM_ORACLE_VERSIONS" ]; then \
+      for ver in $GRAALVM_ORACLE_VERSIONS; do \
+        bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install java ${ver}-graal"; \
+      done && \
+      ln -sf "$SDKMAN_DIR/candidates/java/current/bin/native-image" /usr/local/bin/native-image || true && \
+      # Re-set OpenJDK as the default if configured
       if [ -n "$OPENJDK_VERSIONS" ]; then \
         first=$(echo $OPENJDK_VERSIONS | awk '{print $1}') && \
         bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk default java ${first}-tem"; \
@@ -248,8 +260,14 @@ RUN if [ "$INSTALL_GITHUB_CLI" = "1" ]; then \
 ARG INSTALL_COPILOT=1
 RUN if [ "$INSTALL_COPILOT" = "1" ]; then npm install -g @github/copilot; fi
 
-ARG INSTALL_ANGULAR_CLI=1
-RUN if [ "$INSTALL_ANGULAR_CLI" = "1" ]; then npm install -g @angular/cli; fi
+ARG ANGULAR_CLI_VERSION="latest"
+RUN if [ -n "$ANGULAR_CLI_VERSION" ] && [ "$ANGULAR_CLI_VERSION" != "OFF" ]; then \
+      if [ "$ANGULAR_CLI_VERSION" = "latest" ]; then \
+        npm install -g @angular/cli; \
+      else \
+        npm install -g "@angular/cli@${ANGULAR_CLI_VERSION}"; \
+      fi; \
+    fi
 
 ARG INSTALL_CLAUDE_CODE=1
 RUN if [ "$INSTALL_CLAUDE_CODE" = "1" ]; then npm install -g @anthropic-ai/claude-code; fi
