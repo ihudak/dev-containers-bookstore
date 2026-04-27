@@ -26,7 +26,7 @@ fi
 gh_latest_tag() {
   local repo="$1" tag="" i
   for i in 1 2 3; do
-    tag=$(curl -fsSL "${AUTH_ARGS[@]}" "https://api.github.com/repos/${repo}/releases/latest" \
+    tag=$(curl -fsSL ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} "https://api.github.com/repos/${repo}/releases/latest" \
           | grep '"tag_name"' | head -1 \
           | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
     [ -n "$tag" ] && break
@@ -61,8 +61,12 @@ install_tool() {
   fi
 
   echo "Installing ${name} ${tag}..."
-  curl -fsSL "https://github.com/${repo}/releases/download/${tag}/${name}_${tag#v}_${OS}_${ARCH}.tar.gz" \
-    | tar xz -C /usr/local/bin "$name"
+  if ! curl -fsSL "https://github.com/${repo}/releases/download/${tag}/${name}_${tag#v}_${OS}_${ARCH}.tar.gz" \
+    | tar xz -C /usr/local/bin "$name"; then
+    echo "WARNING: Failed to download/extract ${name} ${tag} — skipping."
+    echo "         Check that version '${tag#v}' exists at https://github.com/${repo}/releases"
+    return 0
+  fi
   chmod +x "/usr/local/bin/${name}"
   echo "Installed ${name} ${tag}"
 }

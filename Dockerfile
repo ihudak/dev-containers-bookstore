@@ -1,5 +1,6 @@
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-c"]
 
 # Sandbox user: created at container startup by the entrypoint using
 # the SANDBOX_UID/SANDBOX_GID env vars that runme.sh passes automatically
@@ -25,8 +26,12 @@ RUN apt-get update && apt-get install -y \
 # NODE_EXTRA_VERSIONS: space-separated list of additional versions to install.
 ARG NODE_EXTRA_VERSIONS=""
 ENV NVM_DIR=/opt/nvm
+# Pin nvm to a release tag for reproducibility and supply-chain safety.
+# Configured via nvm-version in sandbox.conf; this default is the fallback.
+# Check https://github.com/nvm-sh/nvm/releases for newer versions.
+ARG NVM_VERSION=v0.40.4
 RUN mkdir -p "$NVM_DIR" && \
-    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/HEAD/install.sh | \
+    curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | \
       PROFILE=/dev/null bash && \
     # Always install latest LTS
     bash -c "source $NVM_DIR/nvm.sh && nvm install --lts && nvm alias default 'lts/*'" && \
@@ -58,8 +63,6 @@ ARG MAVEN_VERSIONS=""
 ARG GRADLE_VERSIONS=""
 ENV SDKMAN_DIR=/opt/sdkman
 RUN if [ "$INSTALL_SDKMAN" = "1" ]; then \
-      apt-get update && apt-get install -y zip unzip curl bash && \
-      rm -rf /var/lib/apt/lists/* && \
       curl -fsSL "https://get.sdkman.io" | SDKMAN_DIR="$SDKMAN_DIR" bash && \
       chmod -R a+rX "$SDKMAN_DIR"; \
     fi
@@ -79,7 +82,13 @@ RUN if [ "$INSTALL_SDKMAN" = "1" ] && [ -n "$GRAALVM_VERSIONS" ]; then \
       for ver in $GRAALVM_VERSIONS; do \
         bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install java ${ver}-graalce"; \
       done && \
-      ln -sf "$SDKMAN_DIR/candidates/java/current/bin/native-image" /usr/local/bin/native-image || true; \
+      ln -sf "$SDKMAN_DIR/candidates/java/current/bin/native-image" /usr/local/bin/native-image || true && \
+      # Re-set OpenJDK as the default java if it was configured, since GraalVM
+      # install may have changed the 'current' symlink.
+      if [ -n "$OPENJDK_VERSIONS" ]; then \
+        first=$(echo $OPENJDK_VERSIONS | awk '{print $1}') && \
+        bash -c "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk default java ${first}-tem"; \
+      fi; \
     fi
 RUN if [ "$INSTALL_SDKMAN" = "1" ] && [ -n "$KOTLIN_VERSIONS" ]; then \
       for ver in $KOTLIN_VERSIONS; do \
@@ -201,15 +210,17 @@ RUN if [ -n "$GO_VERSION" ]; then \
 # ── Optional: kubectl ───────────────────────────────────────────────────────────
 ARG INSTALL_KUBECTL=1
 RUN if [ "$INSTALL_KUBECTL" = "1" ]; then \
-      curl -fsSL https://dl.k8s.io/release/stable.txt | \
-        xargs -I{} curl -LO https://dl.k8s.io/release/{}/bin/linux/amd64/kubectl && \
+      ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/') && \
+      KUBE_VERSION=$(curl -fsSL https://dl.k8s.io/release/stable.txt) && \
+      curl -LO "https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${ARCH}/kubectl" && \
       install kubectl /usr/local/bin/kubectl && rm kubectl; \
     fi
 
 # ── Optional: AWS CLI v2 ────────────────────────────────────────────────────────
 ARG INSTALL_AWS_CLI=1
 RUN if [ "$INSTALL_AWS_CLI" = "1" ]; then \
-      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip && \
+      ARCH=$(uname -m) && \
+      curl "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip" -o awscliv2.zip && \
       unzip awscliv2.zip && ./aws/install && rm -rf aws awscliv2.zip; \
     fi
 
@@ -233,29 +244,35 @@ RUN if [ "$INSTALL_GITHUB_CLI" = "1" ]; then \
     fi
 
 # ── Optional: npm-based agent tools ────────────────────────────────────────────
+# Each agent gets its own layer so toggling one doesn't invalidate the others.
 ARG INSTALL_COPILOT=1
+RUN if [ "$INSTALL_COPILOT" = "1" ]; then npm install -g @github/copilot; fi
+
 ARG INSTALL_ANGULAR_CLI=1
+RUN if [ "$INSTALL_ANGULAR_CLI" = "1" ]; then npm install -g @angular/cli; fi
+
 ARG INSTALL_CLAUDE_CODE=1
+RUN if [ "$INSTALL_CLAUDE_CODE" = "1" ]; then npm install -g @anthropic-ai/claude-code; fi
+
 ARG INSTALL_CODEX=0
+RUN if [ "$INSTALL_CODEX" = "1" ]; then npm install -g @openai/codex; fi
+
 ARG INSTALL_GEMINI=0
+RUN if [ "$INSTALL_GEMINI" = "1" ]; then npm install -g @google/gemini-cli; fi
+
 ARG INSTALL_YARN=0
-RUN set -e; \
-    pkgs=""; \
-    if [ "$INSTALL_COPILOT"     = "1" ]; then pkgs="$pkgs @github/copilot"; fi; \
-    if [ "$INSTALL_ANGULAR_CLI" = "1" ]; then pkgs="$pkgs @angular/cli"; fi; \
-    if [ "$INSTALL_CLAUDE_CODE" = "1" ]; then pkgs="$pkgs @anthropic-ai/claude-code"; fi; \
-    if [ "$INSTALL_CODEX"       = "1" ]; then pkgs="$pkgs @openai/codex"; fi; \
-    if [ "$INSTALL_GEMINI"      = "1" ]; then pkgs="$pkgs @google/gemini-cli"; fi; \
-    if [ "$INSTALL_YARN"        = "1" ]; then pkgs="$pkgs yarn"; fi; \
-    if [ -n "$pkgs" ]; then npm install -g $pkgs; fi
+RUN if [ "$INSTALL_YARN" = "1" ]; then npm install -g yarn; fi
 
 # ── Optional: Kiro CLI ──────────────────────────────────────────────────────────
 ARG INSTALL_KIRO=0
 RUN if [ "$INSTALL_KIRO" = "1" ]; then \
       curl -fsSL https://cli.kiro.dev/install | bash && \
-      cp ~/.local/bin/kiro-cli /usr/local/bin/kiro-cli && \
-      cp ~/.local/bin/kiro-cli-chat /usr/local/bin/kiro-cli-chat && \
-      cp ~/.local/bin/kiro-cli-term /usr/local/bin/kiro-cli-term; \
+      # Copy installed binaries to PATH; find them dynamically in case the
+      # installer changes its default location.
+      install_dir=$(dirname "$(command -v kiro-cli 2>/dev/null || find /root -name kiro-cli -type f 2>/dev/null | head -1)") && \
+      for bin in kiro-cli kiro-cli-chat kiro-cli-term; do \
+        [ -f "$install_dir/$bin" ] && cp "$install_dir/$bin" /usr/local/bin/; \
+      done; \
     fi
 
 # ── Optional: dtctl and dtmgd ───────────────────────────────────────────────────

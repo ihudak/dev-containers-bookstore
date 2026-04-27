@@ -6,7 +6,5 @@ services.gradle.org
 
 # Adoptium Temurin (OpenJDK via SDKMAN)
 api.adoptium.net
-github.com/adoptium
 
-# GraalVM CE (via SDKMAN)
-github.com/graalvm
+# GraalVM CE (via SDKMAN) — releases hosted on github.com (already in base.txt)

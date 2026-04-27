@@ -7,6 +7,7 @@ It packages a CLI-only Docker-based workspace for running AI coding agents (GitH
 ## Requirements
 
 - **Docker ≥ 23** (BuildKit is required and is the default since Docker 23). Verify with `docker --version`.
+- **Bash ≥ 4.4** on the host (for `runme.sh`). Linux distributions ship this by default. macOS ships bash 3.2 — install a newer version via `brew install bash` if needed.
 
 ## What is included
 
@@ -78,6 +79,9 @@ maven=3.9.9
 
 # Extra Node versions alongside the always-on latest LTS
 node=20,22
+
+# Pin the nvm release (leave empty to use the Dockerfile default)
+nvm-version=v0.40.4
 
 # Extra Python versions alongside the always-on latest stable
 python=3.12,3.11
@@ -243,6 +247,9 @@ After editing any fragment file, run `./runme.sh build` to regenerate the image.
 ## Important notes
 
 - Plain `iptables` cannot pre-resolve wildcard domains such as `*.githubcopilot.com` or `*.kiro.dev` into IP addresses. The self-healing daemon handles this reactively by auto-allowing IPs whose resolved domains match wildcard patterns in `allowlist-proxy-domains.d/`. An upstream proxy provides proactive enforcement if available.
+- **DNS is unrestricted.** The firewall allows all outbound DNS (port 53) to any resolver. This is required for domain resolution but means DNS tunneling is theoretically possible. For higher-security deployments, restrict DNS to a specific resolver by adding `--dns 8.8.8.8` to the `docker run` command and tightening the iptables DNS rules in `entrypoint.sh`.
 - The per-component domain fragments are a practical baseline, not a guarantee that every future agent endpoint is covered. Use discovery mode to find gaps.
 - The asset set is intentionally CLI-only and does not depend on VS Code dev containers.
 - All optional components — including Kiro CLI — are controlled solely by `sandbox.conf`. There is no runtime auto-detection.
+- **Angular CLI** (`angular-cli=ON`) is included as a dev tool because AI coding agents frequently scaffold and modify Angular projects. It is not an AI agent itself.
+- **Image size** depends heavily on which components are enabled. A minimal image (just Node.js + Python + one AI agent) is ~2–3 GB. With all JVM toolchains, multiple Node/Python versions, Ruby, Rust, Go, and all AI agents enabled, expect 8–12 GB. Disable unused components in `sandbox.conf` to reduce size and build time.

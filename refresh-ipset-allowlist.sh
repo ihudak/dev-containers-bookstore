@@ -46,10 +46,18 @@ require_command() {
 require_command ipset
 require_command getent
 
+# Ensure the live sets exist (first run creates them; subsequent runs reuse them).
 ipset create "$ipv4_set_name" hash:net family inet -exist
 ipset create "$ipv6_set_name" hash:net family inet6 -exist
-ipset flush "$ipv4_set_name"
-ipset flush "$ipv6_set_name"
+
+# Build new sets in temporary names, then atomically swap them in.
+# This eliminates the traffic-drop window that flush+repopulate would cause.
+tmp_v4="${ipv4_set_name}_tmp"
+tmp_v6="${ipv6_set_name}_tmp"
+ipset create "$tmp_v4" hash:net family inet -exist
+ipset create "$tmp_v6" hash:net family inet6 -exist
+ipset flush "$tmp_v4"
+ipset flush "$tmp_v6"
 
 while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   line="$(trim "$raw_line")"
@@ -58,12 +66,12 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   fi
 
   if is_ipv4 "$line" || is_ipv4_cidr "$line"; then
-    ipset add "$ipv4_set_name" "$line" -exist
+    ipset add "$tmp_v4" "$line" -exist
     continue
   fi
 
   if is_ipv6_or_cidr "$line"; then
-    ipset add "$ipv6_set_name" "$line" -exist
+    ipset add "$tmp_v6" "$line" -exist
     continue
   fi
 
@@ -76,11 +84,11 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   fi
 
   for ip in "${resolved_ipv4[@]}"; do
-    ipset add "$ipv4_set_name" "$ip" -exist
+    ipset add "$tmp_v4" "$ip" -exist
   done
 
   for ip in "${resolved_ipv6[@]}"; do
-    ipset add "$ipv6_set_name" "$ip" -exist
+    ipset add "$tmp_v6" "$ip" -exist
   done
 done < "$domains_file"
 
@@ -91,15 +99,22 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
   fi
 
   if is_ipv4 "$line" || is_ipv4_cidr "$line"; then
-    ipset add "$ipv4_set_name" "$line" -exist
+    ipset add "$tmp_v4" "$line" -exist
     continue
   fi
 
   if is_ipv6_or_cidr "$line"; then
-    ipset add "$ipv6_set_name" "$line" -exist
+    ipset add "$tmp_v6" "$line" -exist
     continue
   fi
 
   printf 'Invalid IP address or CIDR in %s: %s\n' "$cidrs_file" "$line" >&2
   exit 1
 done < "$cidrs_file"
+
+# Atomically swap the fully-populated temp sets into the live names.
+ipset swap "$tmp_v4" "$ipv4_set_name"
+ipset swap "$tmp_v6" "$ipv6_set_name"
+# Destroy the old sets (now under the temp names after the swap).
+ipset destroy "$tmp_v4"
+ipset destroy "$tmp_v6"

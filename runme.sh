@@ -83,6 +83,8 @@ get_versions() {
   local key="$1"
   local raw
   raw=$(grep "^${key}=" "$config_file" 2>/dev/null | head -1 | cut -d= -f2-)
+  # Strip inline comments (e.g. "21 # LTS version" → "21")
+  raw="${raw%%#*}"
   # Trim whitespace
   raw="${raw#"${raw%%[![:space:]]*}"}"
   raw="${raw%"${raw##*[![:space:]]}"}"
@@ -287,6 +289,12 @@ build_args_from_config() {
   ver="$(get_versions node)"
   _args+=(--build-arg "NODE_EXTRA_VERSIONS=$(versions_to_space "$ver")")
 
+  # nvm version pin (optional — falls back to Dockerfile default if empty)
+  ver="$(get_versions nvm-version)"
+  if [[ -n "$ver" ]]; then
+    _args+=(--build-arg "NVM_VERSION=$ver")
+  fi
+
   ver="$(get_versions python)"
   _args+=(--build-arg "PYTHON_EXTRA_VERSIONS=$(versions_to_space "$ver")")
 
@@ -433,10 +441,10 @@ run_container() {
   if is_enabled kubectl; then
     add_mount_if_exists config_mount_flags "$HOME/.kube" "$dev_home/.kube"
   fi
-  if is_enabled dtctl; then
+  if is_active dtctl; then
     add_mount_if_exists config_mount_flags "$HOME/.config/dtctl" "$dev_home/.config/dtctl"
   fi
-  if is_enabled dtmgd; then
+  if is_active dtmgd; then
     add_mount_if_exists config_mount_flags "$HOME/.config/dtmgd" "$dev_home/.config/dtmgd"
   fi
 
@@ -456,8 +464,8 @@ run_container() {
     -e SANDBOX_GROUP="${SANDBOX_GROUP:-$(id -gn)}" \
     ${SELF_HEALING_ENABLED:+-e SELF_HEALING_ENABLED="$SELF_HEALING_ENABLED"} \
     -v "$workspace_dir:/workspace" \
-    "${extra_mount_flags[@]}" \
-    "${config_mount_flags[@]}" \
+    ${extra_mount_flags[@]+"${extra_mount_flags[@]}"} \
+    ${config_mount_flags[@]+"${config_mount_flags[@]}"} \
     -w /workspace \
     "$image_name"
 }

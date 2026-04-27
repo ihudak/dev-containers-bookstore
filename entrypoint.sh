@@ -107,7 +107,8 @@ apply_restricted_firewall() {
         "$domains_file" \
         "$cidrs_file" \
         "$ipv4_set_name" \
-        "$ipv6_set_name"
+        "$ipv6_set_name" || \
+        printf 'WARNING: ipset refresh failed at %s — using stale allowlist\n' "$(date -u '+%Y-%m-%dT%H:%M:%S')" >&2
     done
   ) &
 }

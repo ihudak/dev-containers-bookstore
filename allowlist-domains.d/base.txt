@@ -4,8 +4,7 @@ security.ubuntu.com
 ppa.launchpad.net
 keyserver.ubuntu.com
 
-# Node.js (always installed as the npm base)
-deb.nodesource.com
+# Node.js / npm (always installed via nvm)
 registry.npmjs.org
 npmjs.org
 npmjs.com
