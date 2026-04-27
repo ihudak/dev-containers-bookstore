@@ -1,0 +1,11 @@
+# custom.txt.example — copy this file to custom.txt to get started:
+#   cp allowlist-cidrs.d/custom.txt.example allowlist-cidrs.d/custom.txt
+#
+# custom.txt is gitignored so your internal IPs stay out of version control.
+# Always included regardless of which components are enabled.
+# Add explicit proxy IPs or narrow CIDRs here when agent traffic routes through
+# a corporate proxy. Do not use broad catch-all ranges (0.0.0.0/0, ::/0).
+#
+# Examples:
+#   10.20.30.40/32    # corporate proxy
+#   2001:db8::/48     # corporate IPv6 range

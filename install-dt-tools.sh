@@ -8,7 +8,7 @@
 #   GITHUB_TOKEN   optional; raises GitHub API rate limit from 60 to 5000 req/h
 #
 # Non-fatal: rate-limit failures print a clear error and exit 0.
-set -uo pipefail
+set -euo pipefail
 
 ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')

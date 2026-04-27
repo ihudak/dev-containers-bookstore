@@ -5,3 +5,12 @@
 /allowlist-domains.txt
 /allowlist-proxy-domains.txt
 /allowlist-cidrs.txt
+
+# User-specific custom allowlist entries — may contain internal hostnames.
+# Copy the .example files to get started:
+#   cp allowlist-domains.d/custom.txt.example allowlist-domains.d/custom.txt
+#   cp allowlist-proxy-domains.d/custom.txt.example allowlist-proxy-domains.d/custom.txt
+#   cp allowlist-cidrs.d/custom.txt.example allowlist-cidrs.d/custom.txt
+allowlist-domains.d/custom.txt
+allowlist-proxy-domains.d/custom.txt
+allowlist-cidrs.d/custom.txt

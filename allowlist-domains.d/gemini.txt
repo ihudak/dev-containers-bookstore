@@ -1,6 +1,12 @@
 # Gemini CLI (Google)
+# AI API
 generativelanguage.googleapis.com
+# OAuth / account auth
 oauth2.googleapis.com
 accounts.google.com
+# Web UI and update checks
 gemini.google.com
+# Storage (used by installer/updater, shared with Claude Code)
 storage.googleapis.com
+# Telemetry / crash reporting
+firebaselogging-pa.googleapis.com

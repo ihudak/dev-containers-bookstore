@@ -144,6 +144,13 @@ case "$mode" in
     apply_restricted_firewall
     setup_sandbox_user
 
+    printf '╔══════════════════════════════════════════════════════════════════╗\n'
+    printf '║  NOTE: DNS (port 53) is unrestricted — all resolvers reachable. ║\n'
+    printf '║  DNS tunneling is theoretically possible. For higher security,  ║\n'
+    printf '║  add --dns 8.8.8.8 to the docker run command and restrict the   ║\n'
+    printf '║  iptables DNS rules in entrypoint.sh to a specific resolver.    ║\n'
+    printf '╚══════════════════════════════════════════════════════════════════╝\n'
+
     # Start the blocked-traffic capture daemon before dropping capabilities.
     # This process is forked here as root and retains CAP_NET_RAW after the exec below.
     if [[ "$blocked_capture_enabled" == "1" ]]; then

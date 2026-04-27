@@ -223,7 +223,7 @@ Three `*.d/` directories hold the source-of-truth fragment files. `runme.sh buil
 | Directory | Controls | Always included | Per-component |
 |-----------|----------|-----------------|---------------|
 | `allowlist-domains.d/` | Concrete FQDNs resolved to IPs at startup and every 60 s | `base.txt`, `custom.txt` | one file per component |
-| `allowlist-proxy-domains.d/` | Wildcard patterns used by the self-healing daemon (e.g. `*.githubcopilot.com`) | `custom.txt` | `github-copilot.txt`, `kiro.txt`, `dynatrace.txt` |
+| `allowlist-proxy-domains.d/` | Wildcard patterns used by the self-healing daemon (e.g. `*.githubcopilot.com`) | `custom.txt` | `github-copilot.txt`, `kiro.txt`, `claude-code.txt`, `codex.txt`, `gemini.txt`, `dynatrace.txt` |
 | `allowlist-cidrs.d/` | Literal IP addresses and CIDR ranges added directly to ipset | `base.txt`, `custom.txt` | `github-copilot.txt` |
 
 **Where to put your additions:**
@@ -242,6 +242,7 @@ After editing any fragment file, run `./runme.sh build` to regenerate the image.
 - Edit `sandbox.conf` to enable only the components your team actually uses.
 - Add environment-specific FQDNs (internal Git, artifact repos, MCP endpoints, search engines) to `allowlist-domains.d/custom.txt`.
 - If agent traffic must go through a corporate proxy, add wildcard patterns to `allowlist-proxy-domains.d/custom.txt` and allow only the proxy IPs in `allowlist-cidrs.d/custom.txt`.
+- The `custom.txt` files in each `*.d/` directory are **gitignored** to prevent internal hostnames and IPs from being committed. Each directory ships a `custom.txt.example` template; `./runme.sh build` auto-copies it to `custom.txt` on first run.
 - The sandbox user identity (`SANDBOX_UID`, `SANDBOX_GID`, `SANDBOX_USER`, `SANDBOX_GROUP`) is detected automatically from the host user at runtime. No build-time args needed.
 - Review the default values in `runme.sh`, especially `IMAGE_NAME` and `SSH_SCOPE_DIR`, before publishing this into a separate repository.
 

@@ -1,3 +1,7 @@
 # Codex CLI (OpenAI)
+# API key auth and model requests
 api.openai.com
 openai.com
+# ChatGPT plan auth (Sign in with ChatGPT flow)
+chatgpt.com
+auth.openai.com

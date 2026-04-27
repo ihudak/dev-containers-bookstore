@@ -31,6 +31,7 @@ mkdir -p "$internal_dir"
 chmod 700 "$internal_dir"
 
 dns_map="$internal_dir/dns-map.txt"
+dns_map_lock="$internal_dir/dns-map.lock"
 dns_map_max_lines=10000
 blocked_log="$capture_dir/blocked.log"
 blocked_domains="$capture_dir/blocked-domains.txt"
@@ -150,17 +151,27 @@ start_dns_map_builder() {
       # dns.resp.name can return comma-separated duplicates; take the first.
       local name="${raw_name%%,*}"
       [[ -z "$name" ]] && continue
-      # Cap dns_map size to prevent unbounded growth in long-running containers.
-      if [ "$(wc -l < "$dns_map" 2>/dev/null || echo 0)" -ge "$dns_map_max_lines" ]; then
-        tail -n $(( dns_map_max_lines / 2 )) "$dns_map" > "$dns_map.tmp" && mv "$dns_map.tmp" "$dns_map"
-      fi
       for ip in ${a_list//,/ }; do
         [[ -z "$ip" ]] && continue
-        grep -qxF "$ip $name" "$dns_map" 2>/dev/null || printf '%s %s\n' "$ip" "$name" >> "$dns_map"
+        flock "$dns_map_lock" bash -c '
+          grep -qxF "$1 $2" "$3" 2>/dev/null || {
+            if [ "$(wc -l < "$3" 2>/dev/null || echo 0)" -ge "$4" ]; then
+              tail -n $(( $4 / 2 )) "$3" > "$3.tmp" && mv "$3.tmp" "$3"
+            fi
+            printf "%s %s\n" "$1" "$2" >> "$3"
+          }
+        ' -- "$ip" "$name" "$dns_map" "$dns_map_max_lines"
       done
       for ip in ${aaaa_list//,/ }; do
         [[ -z "$ip" ]] && continue
-        grep -qxF "$ip $name" "$dns_map" 2>/dev/null || printf '%s %s\n' "$ip" "$name" >> "$dns_map"
+        flock "$dns_map_lock" bash -c '
+          grep -qxF "$1 $2" "$3" 2>/dev/null || {
+            if [ "$(wc -l < "$3" 2>/dev/null || echo 0)" -ge "$4" ]; then
+              tail -n $(( $4 / 2 )) "$3" > "$3.tmp" && mv "$3.tmp" "$3"
+            fi
+            printf "%s %s\n" "$1" "$2" >> "$3"
+          }
+        ' -- "$ip" "$name" "$dns_map" "$dns_map_max_lines"
       done
     done
   ) &
@@ -175,11 +186,15 @@ start_blocked_watcher() {
   # NFLOG delivers packets to userspace via netlink, which works reliably in
   # all environments including WSL2 with the nf_tables backend.  The older LOG
   # target (dmesg) silently fails in many container/WSL2 setups.
+  #
+  # Both ip.dst (IPv4) and ipv6.dst (IPv6) are captured so blocked IPv6
+  # destinations are logged and self-healed just like IPv4 ones.
   (
     tshark -i "nflog:$nflog_group" -l -n \
-      -T fields -e ip.dst -e tcp.dstport -e udp.dstport \
+      -T fields -e ip.dst -e ipv6.dst -e tcp.dstport -e udp.dstport \
       2>"$capture_dir/tshark-nflog-errors.log" | \
-    while IFS=$'\t' read -r dst tcp_port udp_port; do
+    while IFS=$'\t' read -r dst4 dst6 tcp_port udp_port; do
+      local dst="${dst4:-$dst6}"
       local port="${tcp_port:-$udp_port}"
       [[ -z "$dst" || -z "$port" ]] && continue
       local proto="TCP"

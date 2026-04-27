@@ -1,0 +1,12 @@
+# custom.txt.example — copy this file to custom.txt to get started:
+#   cp allowlist-domains.d/custom.txt.example allowlist-domains.d/custom.txt
+#
+# custom.txt is gitignored so your internal hostnames stay out of version control.
+# It is always included regardless of which components are enabled.
+# Add any additional domains here: internal registries, MCP server endpoints,
+# search engines, or anything else your AI agents need to reach at runtime.
+#
+# Examples:
+#   google.com
+#   your-internal-registry.example.com
+#   your-mcp-server.example.com

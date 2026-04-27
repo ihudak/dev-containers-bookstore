@@ -173,6 +173,15 @@ generate_allowlists() {
   local proxy_d="${script_dir}/allowlist-proxy-domains.d"
   local cidrs_d="${script_dir}/allowlist-cidrs.d"
 
+  # Auto-create custom.txt from the .example template if it doesn't exist yet.
+  # This lets new users run ./runme.sh build without any manual setup.
+  for f in "$domains_d/custom.txt" "$proxy_d/custom.txt" "$cidrs_d/custom.txt"; do
+    if [[ ! -f "$f" && -f "${f}.example" ]]; then
+      cp "${f}.example" "$f"
+      printf 'Created %s from template (gitignored — add your own entries there)\n' "$f"
+    fi
+  done
+
   printf 'Generating allowlists from sandbox.conf...\n'
 
   # allowlist-domains.txt
@@ -210,6 +219,9 @@ generate_allowlists() {
     printf '# Edit files in allowlist-proxy-domains.d/ and run: ./runme.sh build\n\n'
     include_if_enabled  "$proxy_d/github-copilot.txt"  copilot
     include_if_enabled  "$proxy_d/kiro.txt"            kiro
+    include_if_enabled  "$proxy_d/claude-code.txt"     claude-code
+    include_if_enabled  "$proxy_d/codex.txt"           codex
+    include_if_enabled  "$proxy_d/gemini.txt"          gemini
     if any_active dtctl dtmgd; then include_fragment "$proxy_d/dynatrace.txt"; fi
     include_fragment    "$proxy_d/custom.txt"
   } > "${script_dir}/allowlist-proxy-domains.txt"
@@ -504,7 +516,7 @@ for arg in "$@"; do
 done
 set -- "${args[@]+"${args[@]}"}"
 
-command="${1:-restricted}"
+command="${1:-usage}"
 
 case "$command" in
   build)
@@ -513,7 +525,7 @@ case "$command" in
   restricted|discovery)
     run_container "$command" "${2:-$PWD}"
     ;;
-  -h|--help|help)
+  -h|--help|help|usage)
     usage
     ;;
   *)

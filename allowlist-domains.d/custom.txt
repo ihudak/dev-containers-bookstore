@@ -1,8 +1,0 @@
-# custom.txt — always included regardless of which components are enabled.
-# Add any additional domains here: internal registries, MCP server endpoints,
-# search engines, or anything else your AI agents need to reach at runtime.
-#
-# Examples:
-#   google.com
-#   your-internal-registry.example.com
-#   your-mcp-server.example.com

@@ -1,7 +1,13 @@
 # Claude Code (Anthropic)
+# Source: https://docs.anthropic.com/en/docs/claude-code/corporate-proxy
 api.anthropic.com
 claude.ai
+platform.claude.com
+downloads.claude.ai
 statsig.anthropic.com
 statsigapi.net
 sentry.io
 o4507156944379904.ingest.sentry.io
+# storage.googleapis.com is used by the native installer/auto-updater.
+# It is also needed by Gemini CLI; listed here for Claude Code completeness.
+storage.googleapis.com
