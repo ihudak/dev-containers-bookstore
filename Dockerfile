@@ -15,7 +15,7 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 # ── Essential packages ──────────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates curl gnupg lsb-release \
-  git vim grep mc \
+  git vim grep mc jq \
   wget iputils-ping \
   iptables ipset dnsutils \
   openssh-client \
@@ -299,6 +299,9 @@ RUN if [ "$INSTALL_GEMINI" = "1" ]; then npm install -g @google/gemini-cli; fi
 
 ARG INSTALL_YARN=0
 RUN if [ "$INSTALL_YARN" = "1" ]; then npm install -g yarn; fi
+
+ARG INSTALL_QMD=0
+RUN if [ "$INSTALL_QMD" = "1" ]; then npm install -g @tobilu/qmd; fi
 
 # ── Optional: Kiro CLI ──────────────────────────────────────────────────────────
 ARG INSTALL_KIRO=0

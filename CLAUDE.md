@@ -10,7 +10,7 @@ A CLI-only Docker workspace for running AI coding agents (GitHub Copilot CLI, Ki
 
 `sandbox.conf` is the single source of truth for which optional components are included. Set a component to `ON` or `OFF` and rebuild. The format is strictly `component=ON` or `component=OFF`, one per line; comments start with `#`.
 
-Optional components: `copilot`, `kiro`, `claude-code`, `codex`, `gemini`, `openjdk`, `graalvm-ce`, `graalvm-oracle`, `kotlin`, `scala`, `maven`, `gradle`, `kubectl`, `aws-cli`, `azure-cli`, `github-cli`, `angular-cli`, `yarn`, `dtctl`, `dtmgd`.
+Optional components: `copilot`, `kiro`, `claude-code`, `codex`, `gemini`, `openjdk`, `graalvm-ce`, `graalvm-oracle`, `kotlin`, `scala`, `maven`, `gradle`, `kubectl`, `aws-cli`, `azure-cli`, `github-cli`, `angular-cli`, `yarn`, `qmd`, `dtctl`, `dtmgd`.
 
 ## Commands
 
@@ -37,6 +37,9 @@ docker run --rm --entrypoint capture-agent-destinations.sh \
 - `SSH_SCOPE_DIR` — host SSH directory to mount read-only as `~/.ssh`
 - `SANDBOX_UID/GID/USER/GROUP` — override the auto-detected host user identity
 - `EXTRA_MOUNTS` — space-separated extra host paths to mount under `/repos/<basename>`, e.g. `EXTRA_MOUNTS="/path/to/a:ro /path/to/b"`
+- `DOCS_PATH` — host directory mounted as `/docs` inside the container
+- `SPECS_PATH` — host directory mounted as `/specs` inside the container
+- `VAULT_PATH` — host Obsidian vault mounted as `/obsidian`; also re-exported as `VAULT_PATH=/obsidian` inside the container so agent skills/workflows resolve to the in-container path. Pair with `qmd=ON` in `sandbox.conf` for in-container markdown search.
 - `SELF_HEALING_ENABLED=0` — disable reactive IP auto-allowing (logging only)
 
 ## Architecture

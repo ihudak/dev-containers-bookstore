@@ -11,7 +11,7 @@ It packages a CLI-only Docker-based workspace for running AI coding agents (GitH
 
 ## What is included
 
-- `Dockerfile` builds the image from a configurable set of optional components: AI agents (GitHub Copilot CLI, Kiro CLI, Claude Code, Codex CLI, Gemini CLI), JVM toolchains (via SDKMAN: OpenJDK, GraalVM CE, Kotlin, Scala, Maven, Gradle), Node.js versions (via nvm), Python versions (via pyenv), Ruby + Rails (via rvm), Rust (via rustup), Go, cloud CLIs (AWS, Azure, kubectl, GitHub CLI), dev tools (Angular CLI), and Dynatrace CLIs (dtctl, dtmgd). Node.js (latest LTS), Python (latest stable), git, packet-capture tools, and the non-root sandbox user are always included.
+- `Dockerfile` builds the image from a configurable set of optional components: AI agents (GitHub Copilot CLI, Kiro CLI, Claude Code, Codex CLI, Gemini CLI), JVM toolchains (via SDKMAN: OpenJDK, GraalVM CE, Kotlin, Scala, Maven, Gradle), Node.js versions (via nvm), Python versions (via pyenv), Ruby + Rails (via rvm), Rust (via rustup), Go, cloud CLIs (AWS, Azure, kubectl, GitHub CLI), dev tools (Angular CLI, qmd), and Dynatrace CLIs (dtctl, dtmgd). Node.js (latest LTS), Python (latest stable), git, jq, packet-capture tools, and the non-root sandbox user are always included.
 - `sandbox.conf` controls which optional components are built into the image and which credential directories are mounted at runtime.
 - `install-dt-tools.sh` is a build-time helper script that installs dtctl and dtmgd from GitHub releases, with optional authentication via `GITHUB_TOKEN`.
 - `entrypoint.sh` applies either a restricted firewall or a discovery mode at container startup. In both modes it creates the sandbox user and drops to it via `capsh`. Restricted mode drops `NET_ADMIN` and `NET_RAW`; discovery mode drops only `NET_ADMIN` (keeping `NET_RAW` for tcpdump).
@@ -160,6 +160,25 @@ bash ./runme.sh restricted /path/to/myproject-backend
 ```
 
 Each path is mounted at `/repos/<basename>` inside the container.
+
+## Mounting docs, specs, and an Obsidian vault
+
+Three host env vars give AI agents convenient, well-known paths for reference material:
+
+| Env var | Container path | Notes |
+|---------|---------------|-------|
+| `DOCS_PATH`  | `/docs`     | Documentation root (read-write) |
+| `SPECS_PATH` | `/specs`    | Specifications root (read-write) |
+| `VAULT_PATH` | `/obsidian` | Obsidian vault (read-write). Also re-exported as `VAULT_PATH=/obsidian` inside the container so agent skills/workflows that consume the variable resolve to the in-container mount point. |
+
+```bash
+DOCS_PATH=/path/to/docs \
+SPECS_PATH=/path/to/specs \
+VAULT_PATH=/path/to/obsidian-vault \
+./runme.sh restricted /path/to/repo
+```
+
+When `VAULT_PATH` is set, set `qmd=ON` in `sandbox.conf` and rebuild — `runme.sh` warns at startup if the vault is mounted but qmd was not baked into the image. `qmd` is the on-device markdown search engine [@tobilu/qmd](https://github.com/tobi/qmd), installed globally via npm.
 
 ## Host configuration mounts
 

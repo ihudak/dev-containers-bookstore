@@ -29,6 +29,12 @@ Environment variables:
                         EXTRA_MOUNTS="/path/to/repo"              # read-write (default)
                         EXTRA_MOUNTS="/path/to/repo:ro"           # read-only
                         EXTRA_MOUNTS="/path/to/a:ro /path/to/b"  # a=read-only, b=read-write
+  DOCS_PATH           Host directory mounted as /docs inside the container.
+  SPECS_PATH          Host directory mounted as /specs inside the container.
+  VAULT_PATH          Host Obsidian vault mounted as /obsidian inside the container.
+                      When set, VAULT_PATH=/obsidian is also exported into the
+                      container so agent skills/workflows resolve correctly.
+                      Requires qmd=ON in sandbox.conf for in-container search.
   SELF_HEALING_ENABLED  Set to 0 to disable self-healing allowlist (default: 1).
                         When disabled, blocked traffic is logged but IPs are never auto-allowed.
   NO_CACHE            Set to 1 to pass --no-cache to docker build (default: unset, uses cache).
@@ -273,6 +279,7 @@ build_args_from_config() {
     "azure-cli:INSTALL_AZURE_CLI"
     "github-cli:INSTALL_GITHUB_CLI"
     "yarn:INSTALL_YARN"
+    "qmd:INSTALL_QMD"
   )
   for mapping in "${bool_mappings[@]}"; do
     component="${mapping%%:*}"
@@ -456,6 +463,34 @@ run_container() {
     done
   fi
 
+  # Optional documentation / spec / vault mounts driven by host env vars.
+  # DOCS_PATH  → /docs        (read-write)
+  # SPECS_PATH → /specs       (read-write)
+  # VAULT_PATH → /obsidian    (read-write); also exports VAULT_PATH=/obsidian
+  #              inside the container so agent skills/workflows that rely on
+  #              the variable resolve to the in-container mount point.
+  local doc_mount_flags=()
+  local vault_env_args=()
+  if [[ -n "${DOCS_PATH:-}" ]]; then
+    add_mount_if_exists doc_mount_flags "$DOCS_PATH" "/docs"
+  fi
+  if [[ -n "${SPECS_PATH:-}" ]]; then
+    add_mount_if_exists doc_mount_flags "$SPECS_PATH" "/specs"
+  fi
+  if [[ -n "${VAULT_PATH:-}" ]]; then
+    local vault_real
+    vault_real="$(resolve_path "${VAULT_PATH/#\~/$HOME}")"
+    if [[ -d "$vault_real" ]]; then
+      doc_mount_flags+=(-v "$vault_real:/obsidian:rw")
+      vault_env_args+=(-e VAULT_PATH=/obsidian)
+      if ! is_enabled qmd; then
+        printf 'WARNING: VAULT_PATH is set but qmd=OFF in sandbox.conf. Set qmd=ON and rebuild for in-container search.\n' >&2
+      fi
+    else
+      printf 'WARNING: VAULT_PATH is set but directory does not exist: %s\n' "$VAULT_PATH" >&2
+    fi
+  fi
+
   # Mount credential directories for enabled components only.
   local config_mount_flags=()
   add_mount_if_exists config_mount_flags "$ssh_scope_dir" "$dev_home/.ssh" ro
@@ -514,8 +549,10 @@ run_container() {
     -e SANDBOX_USER="${SANDBOX_USER:-$(id -un)}" \
     -e SANDBOX_GROUP="${SANDBOX_GROUP:-$(id -gn)}" \
     ${SELF_HEALING_ENABLED:+-e SELF_HEALING_ENABLED="$SELF_HEALING_ENABLED"} \
+    ${vault_env_args[@]+"${vault_env_args[@]}"} \
     -v "$workspace_dir:/workspace" \
     ${extra_mount_flags[@]+"${extra_mount_flags[@]}"} \
+    ${doc_mount_flags[@]+"${doc_mount_flags[@]}"} \
     ${config_mount_flags[@]+"${config_mount_flags[@]}"} \
     -w /workspace \
     "$image_name"
